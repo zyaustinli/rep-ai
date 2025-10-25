@@ -10,16 +10,9 @@ export default function SetupPage() {
   const [formData, setFormData] = useState({
     productName: '',
     productDescription: '',
-    price: '',
-    targetMarket: '',
-    personaName: '',
-    personaRole: '',
-    personaCompany: '',
-    industry: '',
-    companySize: 'medium',
+    personaDescription: '',
     difficulty: 'medium',
     callType: 'cold',
-    duration: '15',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -121,43 +114,11 @@ export default function SetupPage() {
                     name="productDescription"
                     value={formData.productDescription}
                     onChange={handleChange}
-                    rows={4}
+                    rows={6}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none resize-none"
                     placeholder="Describe your product's key features and benefits..."
                     required
                   />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Price *
-                    </label>
-                    <input
-                      type="text"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                      placeholder="e.g., $99/month"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Target Market *
-                    </label>
-                    <input
-                      type="text"
-                      name="targetMarket"
-                      value={formData.targetMarket}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                      placeholder="e.g., Small businesses"
-                      required
-                    />
-                  </div>
                 </div>
               </div>
 
@@ -180,92 +141,23 @@ export default function SetupPage() {
                 <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
                   Target Persona
                 </h2>
-                <p className="text-gray-600">Who will you be selling to?</p>
+                <p className="text-gray-600">Describe the person you'll be selling to</p>
               </div>
 
               <div className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Persona Name
-                    </label>
-                    <input
-                      type="text"
-                      name="personaName"
-                      value={formData.personaName}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                      placeholder="e.g., Sarah Chen (auto-generated if empty)"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Role/Title *
-                    </label>
-                    <input
-                      type="text"
-                      name="personaRole"
-                      value={formData.personaRole}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                      placeholder="e.g., VP of Sales"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Company Name
-                    </label>
-                    <input
-                      type="text"
-                      name="personaCompany"
-                      value={formData.personaCompany}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                      placeholder="e.g., TechGrow Inc"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Industry *
-                    </label>
-                    <input
-                      type="text"
-                      name="industry"
-                      value={formData.industry}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none"
-                      placeholder="e.g., SaaS, Real Estate"
-                      required
-                    />
-                  </div>
-                </div>
-
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Company Size *
+                    Persona Description *
                   </label>
-                  <div className="grid grid-cols-4 gap-3">
-                    {['small', 'medium', 'large', 'enterprise'].map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, companySize: size })}
-                        className={`px-4 py-3 rounded-xl font-medium transition-all ${
-                          formData.companySize === size
-                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg scale-105'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        {size.charAt(0).toUpperCase() + size.slice(1)}
-                      </button>
-                    ))}
-                  </div>
+                  <textarea
+                    name="personaDescription"
+                    value={formData.personaDescription}
+                    onChange={handleChange}
+                    rows={8}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all outline-none resize-none"
+                    placeholder="Describe who you'll be selling to. For example:&#10;&#10;- Hedge fund manager&#10;- VP of Sales at a mid-size tech company&#10;- Small business owner in retail&#10;- Random stranger at a coffee shop&#10;&#10;Be as detailed or simple as you like!"
+                    required
+                  />
                 </div>
               </div>
 
@@ -348,37 +240,69 @@ export default function SetupPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    Duration: {formData.duration} minutes
-                  </label>
-                  <input
-                    type="range"
-                    name="duration"
-                    min="5"
-                    max="30"
-                    step="5"
-                    value={formData.duration}
-                    onChange={handleChange}
-                    className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                  />
-                  <div className="flex justify-between text-sm text-gray-500 mt-2">
-                    <span>5 min</span>
-                    <span>15 min</span>
-                    <span>30 min</span>
-                  </div>
-                </div>
-
                 {/* Summary Card */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border-2 border-blue-100">
-                  <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
-                    <span className="w-2 h-2 bg-blue-600 rounded-full mr-2"></span>
-                    Session Summary
-                  </h3>
-                  <div className="space-y-2 text-sm text-gray-700">
-                    <p><span className="font-medium">Product:</span> {formData.productName || 'Not specified'}</p>
-                    <p><span className="font-medium">Prospect:</span> {formData.personaRole} {formData.personaName && `(${formData.personaName})`}</p>
-                    <p><span className="font-medium">Settings:</span> {formData.difficulty.charAt(0).toUpperCase() + formData.difficulty.slice(1)} difficulty, {formData.callType} call, {formData.duration} min</p>
+                <div className="relative overflow-hidden bg-white rounded-2xl p-8 border-2 border-transparent bg-clip-border shadow-lg">
+                  {/* Gradient border effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 opacity-20 rounded-2xl"></div>
+
+                  {/* Content */}
+                  <div className="relative">
+                    <div className="flex items-center mb-6">
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 mr-3 shadow-lg">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                        Session Summary
+                      </h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-start">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 mr-3 flex-shrink-0">
+                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Product</p>
+                          <p className="text-gray-800 font-medium">{formData.productName || 'Not specified'}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 mr-3 flex-shrink-0">
+                          <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Prospect</p>
+                          <p className="text-gray-800 font-medium line-clamp-2">{formData.personaDescription || 'Not specified'}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-purple-100 mr-3 flex-shrink-0">
+                          <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Settings</p>
+                          <div className="flex flex-wrap gap-2">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 border border-blue-200">
+                              {formData.difficulty.charAt(0).toUpperCase() + formData.difficulty.slice(1)} difficulty
+                            </span>
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border border-indigo-200">
+                              {formData.callType.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} call
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
