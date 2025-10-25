@@ -5,7 +5,7 @@ pydantic==2.7.0
 pydantic-settings==2.2.1
 
 # Database
-supabase==2.4.0
+supabase==2.4.6
 postgrest==0.16.0
 
 # AI/ML APIs
@@ -17,7 +17,7 @@ websockets==12.0
 python-socketio==5.11.0
 
 # HTTP Client
-httpx==0.25.2
+httpx>=0.24,<0.26
 aiohttp==3.9.5
 
 # Utils

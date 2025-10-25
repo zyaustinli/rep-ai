@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Union
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -12,16 +13,23 @@ class Settings(BaseSettings):
     api_reload: bool = True
 
     # CORS
-    cors_origins: List[str] = ["http://localhost:3000"]
+    cors_origins: Union[List[str], str] = ["http://localhost:3000"]
+
+    @field_validator('cors_origins', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(',')]
+        return v
 
     # Supabase
     supabase_url: str
     supabase_key: str
     supabase_jwt_secret: str
 
-    # AI APIs
-    anthropic_api_key: str
-    openai_api_key: str
+    # AI APIs (optional for now)
+    anthropic_api_key: str = ""
+    openai_api_key: str = ""
 
     class Config:
         env_file = ".env"
