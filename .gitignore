@@ -34,6 +34,10 @@ wheels/
 .installed.cfg
 *.egg
 
+# Backend
+backend/venv/
+backend/.env
+
 # IDEs
 .vscode/
 .idea/
