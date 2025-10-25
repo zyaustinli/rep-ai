@@ -23,7 +23,7 @@ FastAPI backend for the Sales Call Practice Platform.
 4. Update `.env` with your API keys:
    - Supabase URL, Key, and JWT Secret
    - Anthropic API Key (for Claude)
-   - OpenAI API Key (for Realtime API)
+   - Vapi API Key
 
 5. Run the development server:
    ```bash
@@ -70,8 +70,8 @@ backend/
 - **Auth**: Supabase Auth + JWT
 - **AI APIs**:
   - Anthropic Claude (scenario generation & analysis)
-  - OpenAI Realtime API (voice conversations)
-- **WebSocket**: Native FastAPI WebSocket support
+  - Vapi (voice conversations with Claude as LLM)
+- **Webhooks**: Vapi webhooks for real-time events
 
 ## API Endpoints
 
@@ -94,7 +94,7 @@ backend/
 - `GET /api/sessions/{id}` - Get session
 - `GET /api/sessions/{id}/transcript` - Get transcript
 - `POST /api/sessions/{id}/analyze` - Trigger analysis
-- `WS /api/sessions/{id}/conversation` - WebSocket for real-time conversation
+- `POST /api/vapi/webhooks/{sessionId}` - Vapi webhook handler
 
 ### Analytics
 - `GET /api/analytics/overview` - Analytics overview
