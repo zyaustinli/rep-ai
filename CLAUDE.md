@@ -50,16 +50,16 @@ A web application that enables users to practice sales calls through AI-powered 
 ┌─────────────────────────────────────────────────────────────────┐
 │                      LLM Integration Layer                       │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │Claude API    │  │Realtime Voice│  │Analysis LLM  │         │
-│  │(Scenario Gen)│  │(Conversation)│  │(Grading)     │         │
+│  │Claude API    │  │Vapi Voice AI │  │Claude API    │         │
+│  │(Scenario Gen)│  │(Conversation)│  │(Analysis)    │         │
 │  └──────────────┘  └──────────────┘  └──────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
                               ↕
 ┌─────────────────────────────────────────────────────────────────┐
-│                   Data Layer (PostgreSQL + S3)                   │
+│                   Data Layer (PostgreSQL)                        │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │User Data     │  │Sessions      │  │Audio Files   │         │
-│  │Products      │  │Transcripts   │  │(Cloud Store) │         │
+│  │User Data     │  │Sessions      │  │Transcripts   │         │
+│  │Products      │  │Scenarios     │  │Analyses      │         │
 │  └──────────────┘  └──────────────┘  └──────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -158,69 +158,96 @@ A web application that enables users to practice sales calls through AI-powered 
 
 ### Phase 2: Real-Time Conversation
 
-**Real-time Voice LLM Options Analysis:**
+**Voice AI Platform: Vapi**
 
-#### Option A: OpenAI Realtime API (Recommended)
-**Pros:**
-- Native audio input/output (no STT/TTS needed)
-- Low latency (~300ms)
-- Built-in function calling
-- Automatic transcription
-- Interruption handling
-- Voice activity detection
+We're using Vapi as our voice AI orchestration platform. Vapi handles the complete speech pipeline (STT → LLM → TTS) and provides sub-500ms latency for natural conversations.
 
-**Cons:**
-- Newer API, less proven
-- Potential cost concerns
-- Limited voice customization
+**Why Vapi:**
+- **Unified Pipeline**: Integrates speech-to-text, LLM, and text-to-speech in one API
+- **Claude Integration**: Use Claude as the conversational LLM for better reasoning
+- **Low Latency**: Sub-500ms response times for natural conversation flow
+- **Flexible Components**: Choose from multiple STT/TTS providers (Deepgram, Azure, ElevenLabs, etc.)
+- **Built-in Features**: Automatic transcription, interruption handling, voice activity detection
+- **Cost Effective**: ~60-75% cheaper than OpenAI Realtime API
+- **Developer-Friendly**: Simple SDK for web, comprehensive webhooks for backend integration
+- **Scalable**: Handles infrastructure, monitoring, and millions of concurrent calls
 
-**Implementation:**
+**Architecture Approach:**
+- **Frontend**: Use Vapi Web SDK (`@vapi-ai/web`) for direct voice calls
+- **Backend**: Receive real-time events and transcripts via Vapi webhooks
+- **LLM**: Configure Vapi to use Claude 3.5 Sonnet as the conversational AI
+- **TTS**: Use Vapi default (upgradeable to ElevenLabs for premium voice quality)
+
+**Implementation Overview:**
 ```javascript
-// WebSocket connection to OpenAI Realtime API
-const setupRealtimeConversation = async (scenario) => {
-  const ws = new WebSocket('wss://api.openai.com/v1/realtime');
-
-  // Configure session with scenario context
-  ws.send({
-    type: 'session.update',
-    session: {
-      instructions: generateSystemPrompt(scenario),
-      voice: 'alloy',
+// Backend: Create Vapi assistant with scenario context
+const createVapiAssistant = async (scenario) => {
+  const response = await vapiClient.assistants.create({
+    name: `Practice Session ${sessionId}`,
+    model: {
+      provider: "anthropic",
+      model: "claude-3-5-sonnet-20241022",
+      systemPrompt: generateSystemPrompt(scenario),
       temperature: 0.8,
-      max_response_tokens: 4096
-    }
+      maxTokens: 4096
+    },
+    voice: {
+      provider: "azure", // or "11labs" for premium quality
+      voiceId: "default"
+    },
+    transcriber: {
+      provider: "deepgram",
+      model: "nova-2",
+      language: "en-US"
+    },
+    serverUrl: `${BACKEND_URL}/api/vapi/webhooks/${sessionId}`,
+    serverUrlSecret: process.env.VAPI_WEBHOOK_SECRET
   });
 
-  // Handle audio streaming
-  // Track conversation events
-  // Collect transcription in real-time
+  return response.id; // assistant ID
 };
+
+// Frontend: Start conversation using Vapi Web SDK
+import Vapi from '@vapi-ai/web';
+
+const vapi = new Vapi(apiKey);
+
+// Start call with assistant
+vapi.start(assistantId);
+
+// Listen for events
+vapi.on('speech-start', () => console.log('AI speaking'));
+vapi.on('speech-end', () => console.log('AI finished'));
+vapi.on('message', (message) => {
+  // Real-time transcript updates
+  if (message.type === 'transcript') {
+    displayTranscript(message);
+  }
+});
+vapi.on('call-end', () => {
+  // Call ended, trigger analysis
+  analyzeSession(sessionId);
+});
+
+// Backend: Webhook handler for real-time events
+app.post('/api/vapi/webhooks/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  const event = req.body;
+
+  switch(event.type) {
+    case 'transcript':
+      // Store transcript entry in real-time
+      await storeTranscriptEntry(sessionId, event.data);
+      break;
+    case 'call-end':
+      // Mark session as completed
+      await updateSessionStatus(sessionId, 'completed');
+      break;
+  }
+
+  res.sendStatus(200);
+});
 ```
-
-#### Option B: ElevenLabs Conversational AI
-**Pros:**
-- Excellent voice quality
-- Custom voice training
-- Low latency
-- Built for conversations
-
-**Cons:**
-- Separate LLM needed for reasoning
-- More complex integration
-- Potentially higher cost
-
-#### Option C: Custom Pipeline (Deepgram + Claude + ElevenLabs)
-**Pros:**
-- Full control over each component
-- Flexibility in model selection
-- Can optimize each stage independently
-
-**Cons:**
-- Highest latency (3 network hops)
-- More complex error handling
-- Requires careful orchestration
-
-**Recommended Approach:** Start with OpenAI Realtime API for MVP, consider hybrid approach later.
 
 **System Prompt for Voice AI:**
 ```
@@ -564,37 +591,77 @@ class ScenarioGenerator:
         pass
 ```
 
-#### 3. Conversation Service
+#### 3. Conversation Service (Vapi Integration)
 ```python
 # services/conversation.py
+from vapi import Vapi
+
 class ConversationService:
     """
-    Manages real-time voice conversation
+    Manages Vapi assistant creation and webhook handling
     """
-    async def start_session(
+    def __init__(self, vapi_api_key: str):
+        self.vapi_client = Vapi(api_key=vapi_api_key)
+
+    async def create_vapi_assistant(
         self,
         session_id: str,
-        scenario: Scenario,
-        websocket: WebSocket
+        scenario: Scenario
+    ) -> str:
+        """
+        Creates a Vapi assistant configured with the scenario
+        Returns assistant_id for frontend to start call
+        """
+        system_prompt = self._build_system_prompt(scenario)
+
+        assistant = await self.vapi_client.assistants.create(
+            name=f"Session {session_id}",
+            model={
+                "provider": "anthropic",
+                "model": "claude-3-5-sonnet-20241022",
+                "systemPrompt": system_prompt,
+                "temperature": 0.8,
+                "maxTokens": 4096
+            },
+            voice={
+                "provider": "azure",  # Can upgrade to "11labs"
+                "voiceId": "default"
+            },
+            transcriber={
+                "provider": "deepgram",
+                "model": "nova-2",
+                "language": "en-US"
+            },
+            serverUrl=f"{config.BACKEND_URL}/api/vapi/webhooks/{session_id}",
+            serverUrlSecret=config.VAPI_WEBHOOK_SECRET
+        )
+
+        return assistant.id
+
+    async def handle_webhook(
+        self,
+        session_id: str,
+        event_type: str,
+        event_data: dict
     ):
         """
-        1. Initialize connection to voice LLM
-        2. Configure with scenario context
-        3. Stream audio bidirectionally
-        4. Collect transcript in real-time
+        Process Vapi webhook events
+        - transcript: Store real-time transcript entries
+        - call-start: Mark session as in_progress
+        - call-end: Mark session as completed
+        - status-update: Track call status
         """
-        pass
+        if event_type == "transcript":
+            await self._store_transcript_entry(session_id, event_data)
+        elif event_type == "call-end":
+            await self._finalize_session(session_id, event_data)
+        # Handle other event types...
 
-    async def handle_audio_stream(self, websocket):
+    def _build_system_prompt(self, scenario: Scenario) -> str:
         """
-        WebSocket handler for audio streaming
+        Formats scenario into Vapi system prompt
         """
-        pass
-
-    async def collect_transcript(self, session_id):
-        """
-        Store transcript as conversation progresses
-        """
+        # Format persona, objections, context into prompt
         pass
 ```
 
@@ -775,19 +842,6 @@ CREATE TABLE analyses (
 
     -- Full analysis text
     detailed_feedback TEXT,
-
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Audio Files (metadata, actual files in S3)
-CREATE TABLE audio_files (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    session_id UUID REFERENCES sessions(id) ON DELETE CASCADE,
-
-    file_path VARCHAR(500) NOT NULL, -- S3 path
-    file_size_bytes BIGINT,
-    duration_seconds INTEGER,
-    format VARCHAR(50), -- mp3, wav, etc.
 
     created_at TIMESTAMP DEFAULT NOW()
 );
@@ -1120,8 +1174,7 @@ Hosting:
   Frontend: Vercel (Next.js native support)
   Backend: Railway, Render, or AWS ECS
   Database: Supabase (Postgres) or AWS RDS
-  Storage: AWS S3 or Cloudflare R2
-  Redis: Upstash or AWS ElastiCache
+  Redis: Upstash or AWS ElastiCache (optional, for caching)
 
 Monitoring:
   Errors: Sentry
@@ -1155,11 +1208,13 @@ CI/CD:
 - [ ] Store scenarios in database
 
 **Week 5-6: Real-time Conversation**
-- [ ] Choose and integrate voice LLM (OpenAI Realtime API)
-- [ ] WebSocket setup for audio streaming
-- [ ] Basic conversation interface
+- [ ] Integrate Vapi voice AI platform
+- [ ] Implement Vapi assistant creation (with scenario as system prompt)
+- [ ] Set up Vapi webhook handlers for transcripts and events
+- [ ] Install Vapi Web SDK on frontend
+- [ ] Basic conversation interface with Vapi SDK
 - [ ] Audio visualization
-- [ ] Real-time transcript collection
+- [ ] Real-time transcript collection via webhooks
 - [ ] End-to-end test of full conversation
 
 **Deliverable:** User can create a scenario and have a voice conversation with AI.
@@ -1221,16 +1276,16 @@ CI/CD:
 **Challenge:** Minimize delay between user speech and AI response for natural conversation.
 
 **Solutions:**
-- Use OpenAI Realtime API (designed for low latency)
-- Optimize WebSocket connection (keep-alive, compression)
-- Use CDN edge locations close to users
-- Implement voice activity detection to start processing early
-- Consider edge computing for audio preprocessing
+- Use Vapi (optimized for sub-500ms latency)
+- Vapi handles WebSocket connections, voice activity detection, and audio routing
+- Backend focuses on webhook handling (no audio streaming)
+- Frontend uses Vapi Web SDK for optimized audio capture/playback
+- Vapi's infrastructure handles edge locations and audio processing
 
 **Target Metrics:**
-- < 500ms total latency (speech end to AI response start)
-- < 200ms network latency
+- < 500ms total latency (speech end to AI response start) - achieved by Vapi
 - Smooth audio streaming without jitter
+- No backend audio processing needed
 
 ### 2. Conversation State Management
 
@@ -1248,23 +1303,24 @@ CI/CD:
 **Challenge:** Ensure high-quality audio capture and playback across devices.
 
 **Solutions:**
-- Use Web Audio API for preprocessing (noise cancellation, gain control)
-- Implement automatic gain control (AGC)
-- Provide audio quality indicators to user
-- Support multiple audio codecs (Opus, AAC)
-- Test across browsers and devices
-- Fallback for poor network conditions (lower quality)
+- Vapi Web SDK handles audio capture and playback
+- Built-in noise cancellation and automatic gain control
+- Vapi handles audio codec selection (Opus)
+- Audio quality monitoring via Vapi events
+- Test across browsers and devices (Vapi SDK compatible)
+- Fallback for poor network conditions (Vapi handles gracefully)
 
 ### 4. Accurate Transcription
 
 **Challenge:** Real-time transcription accuracy, especially for sales terminology.
 
 **Solutions:**
-- If using OpenAI Realtime API: built-in transcription
-- If custom: Use Deepgram with custom vocabulary
-- Post-process transcript with LLM for corrections
+- Vapi uses Deepgram Nova-2 for highly accurate transcription
+- Can configure custom vocabulary for sales-specific terms
+- Vapi streams transcripts in real-time via webhooks
+- Post-process transcript with Claude for corrections if needed
 - Allow manual transcript editing in review
-- Store both raw and corrected transcripts
+- Store transcripts as received from Vapi
 
 ### 5. Cost Management
 
@@ -1277,11 +1333,15 @@ CI/CD:
 - Use Claude Haiku for simple scenarios, Sonnet for complex
 - Estimated cost: $0.01-0.05 per scenario
 
-**Real-time Conversation:**
-- OpenAI Realtime API: ~$0.10-0.30 per minute
+**Real-time Conversation (Vapi):**
+- Vapi pricing breakdown per 15-min session:
+  - Speech-to-Text (Deepgram): ~$0.05-0.10 per minute = $0.75-1.50
+  - LLM (Claude 3.5 Sonnet): ~$0.015/1K tokens, avg 5K tokens = $0.08
+  - Text-to-Speech (Azure): ~$0.016/1K chars, avg 3K chars = $0.05
+- Total Vapi cost: ~$0.90-1.65 per 15-min session
 - Implement session duration limits (15 min for free tier)
 - Use credits/subscription model
-- Estimated cost: $1.50-4.50 per 15-min session
+- **60-75% cheaper than OpenAI Realtime API**
 
 **Analysis:**
 - Use Claude Sonnet (balance of quality and cost)
@@ -1289,7 +1349,7 @@ CI/CD:
 - Cache analysis templates
 - Estimated cost: $0.05-0.15 per analysis
 
-**Total Cost per Session:** $1.60-5.00
+**Total Cost per Session:** $1.00-1.85 (with Vapi)
 **Suggested Pricing:**
 - Free tier: 3 sessions/month
 - Pro tier: $29/month (30 sessions)
@@ -1304,8 +1364,8 @@ CI/CD:
 - Use message queue (Redis Queue, Celery) for async tasks
 - Separate services for conversation vs analysis
 - Database connection pooling
-- CDN for static assets and audio files
-- Load balancing for WebSocket connections
+- CDN for static assets
+- Vapi handles voice call infrastructure and scaling
 
 **Architecture for Scale:**
 ```
@@ -1325,17 +1385,18 @@ CI/CD:
 
 ### 7. Security & Privacy
 
-**Challenge:** Protect user data, especially conversation recordings.
+**Challenge:** Protect user data, especially conversation transcripts.
 
 **Solutions:**
-- Encrypt audio files at rest (S3 server-side encryption)
-- Encrypt WebSocket connections (WSS)
+- No audio storage - only transcripts (privacy-friendly)
+- Vapi handles secure audio streaming (encrypted connections)
 - Implement proper RBAC (users can only access their data)
 - GDPR compliance (data deletion, export)
-- Optional: Don't store audio files (only transcripts)
+- Transcripts stored securely in PostgreSQL with RLS
 - Rate limiting to prevent abuse
 - Input validation and sanitization
 - Secure credential storage (environment variables, secrets manager)
+- Vapi webhook authentication with secrets
 
 ---
 
@@ -1401,17 +1462,6 @@ async def end_session(session_id: str):
     analysis_job.delay(session_id)
 
     return {"summary": quick_summary, "detailed_analysis": "processing"}
-```
-
-### 5. Audio Compression
-
-```python
-# Store audio in compressed format
-# mp3 at 64kbps is sufficient for voice
-# 15 min session = ~7MB instead of 30MB WAV
-
-# Use streaming upload to S3
-# Don't store audio in database (use S3 URLs)
 ```
 
 ---
@@ -1588,11 +1638,11 @@ This system design provides a comprehensive roadmap for building a sales call pr
 ### Recommended Tech Stack Summary:
 - **Frontend**: Next.js + React + Tailwind + shadcn/ui
 - **Backend**: Python + FastAPI
-- **Database**: PostgreSQL + Redis
-- **Voice AI**: OpenAI Realtime API
-- **Analysis**: Claude 3.5 Sonnet
+- **Database**: PostgreSQL (Supabase)
+- **Voice AI**: Vapi (with Claude as conversational LLM)
+- **Scenario & Analysis**: Claude 3.5 Sonnet
 - **Hosting**: Vercel (frontend) + Railway/Render (backend)
-- **Storage**: AWS S3 or Cloudflare R2
+- **Caching** (optional): Redis for scenario caching
 
 This platform has strong potential in the sales enablement space, especially for remote sales teams and individual reps looking to improve their skills. The combination of realistic AI role-play and detailed feedback creates a unique value proposition.
 

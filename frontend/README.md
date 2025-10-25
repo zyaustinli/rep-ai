@@ -17,7 +17,7 @@ Next.js 14 application for the Sales Call Practice Platform.
 3. Update `.env.local` with your API keys:
    - Supabase URL and Anon Key
    - Backend API URL
-   - OpenAI API Key (if needed for client-side)
+   - Vapi Public Key
 
 4. Run development server:
    ```bash
@@ -61,6 +61,7 @@ frontend/
 - **State Management**: Zustand
 - **API Client**: Axios
 - **Auth**: Supabase Auth
+- **Voice**: Vapi Web SDK
 - **Charts**: Recharts
 - **Forms**: React Hook Form + Zod
 
@@ -68,7 +69,7 @@ frontend/
 
 - Server-side rendering with Next.js App Router
 - Type-safe API calls with TypeScript
-- Real-time audio streaming with Web Audio API
+- Real-time voice calls with Vapi Web SDK
 - Responsive design with Tailwind CSS
 - Form validation with Zod
 - Global state management with Zustand

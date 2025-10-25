@@ -17,13 +17,13 @@
 
 ## Overview
 
-The Sales Call Practice Platform is an AI-powered application that enables users to practice sales calls through realistic role-play scenarios. The platform uses Claude for scenario generation and analysis, and OpenAI's Realtime API for voice conversations.
+The Sales Call Practice Platform is an AI-powered application that enables users to practice sales calls through realistic role-play scenarios. The platform uses Claude for scenario generation and analysis, and Vapi for voice conversations.
 
 ### Core Features (MVP)
 - User authentication (email/password)
 - Product and persona configuration
 - AI-generated scenarios (Claude API)
-- Real-time voice conversations (OpenAI Realtime API)
+- Real-time voice conversations (Vapi)
 - Post-call analysis and grading (Claude API)
 - Basic dashboard with session history
 
@@ -49,16 +49,16 @@ The Sales Call Practice Platform is an AI-powered application that enables users
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
 │  │Scenario Gen  │  │Conversation  │  │Analysis      │         │
-│  │(Claude)      │  │(OpenAI RT)   │  │(Claude)      │         │
+│  │(Claude)      │  │(Vapi)        │  │(Claude)      │         │
 │  └──────────────┘  └──────────────┘  └──────────────┘         │
 └─────────────────────────────────────────────────────────────────┘
                          ↕
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Supabase                                      │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐         │
-│  │PostgreSQL    │  │Auth Service  │  │Storage       │         │
-│  │(Database)    │  │(JWT)         │  │(Audio Files) │         │
-│  └──────────────┘  └──────────────┘  └──────────────┘         │
+│  ┌──────────────┐  ┌──────────────┐                            │
+│  │PostgreSQL    │  │Auth Service  │                            │
+│  │(Database)    │  │(JWT)         │                            │
+│  └──────────────┘  └──────────────┘                            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -84,13 +84,12 @@ The Sales Call Practice Platform is an AI-powered application that enables users
 - **Auth**: Supabase Auth + JWT
 - **AI APIs**:
   - Anthropic Claude 3.5 Sonnet (scenario generation & analysis)
-  - OpenAI Realtime API (voice conversations)
-- **WebSocket**: FastAPI WebSocket
+  - Vapi (voice conversations with Claude as LLM)
+- **WebSocket**: Vapi handles audio streaming; Backend uses webhooks
 
 ### Infrastructure
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth
-- **Storage**: Supabase Storage (for audio files)
 - **Hosting**:
   - Frontend: Vercel (recommended)
   - Backend: Railway / Render / AWS (recommended)
@@ -113,15 +112,16 @@ User Input (Product + Persona)
 ### 2. Practice Session Flow
 ```
 User starts session
-  → POST /api/sessions (create session)
-  → Session created with status "pending"
-  → User connects to WS /api/sessions/{id}/conversation
-  → WebSocket established
-  → Audio streaming begins (User ↔ OpenAI Realtime API)
-  → Transcript collected in real-time
+  → POST /api/sessions (create session + Vapi assistant)
+  → Backend creates Vapi assistant with scenario as system prompt
+  → Backend returns assistant_id to frontend
+  → Frontend starts Vapi call using Web SDK
+  → Audio streaming via Vapi (User ↔ Vapi Cloud ↔ Claude LLM)
+  → Vapi sends transcripts to backend via webhooks
+  → Transcript collected in real-time in database
   → User ends session
+  → Vapi webhook triggers session completion
   → Session status → "completed"
-  → Transcript saved to database
 ```
 
 ### 3. Analysis Flow
@@ -216,7 +216,7 @@ backend/
 │   │       └── analysis.py  # Analytics
 │   ├── services/            # Business logic
 │   │   ├── scenario_generator.py  # Claude scenario gen
-│   │   ├── conversation.py        # OpenAI voice conversation
+│   │   ├── conversation.py        # Vapi assistant creation & webhooks
 │   │   └── analysis.py            # Claude analysis
 │   └── utils/
 │       └── prompts.py       # Prompt templates
@@ -232,10 +232,10 @@ backend/
 - Includes persona details, objections, success criteria
 
 #### ConversationService
-- Manages WebSocket connection
-- Interfaces with OpenAI Realtime API
-- Streams audio bidirectionally
-- Collects transcript in real-time
+- Creates Vapi assistants with scenario prompts
+- Handles Vapi webhook events (transcripts, call status)
+- Stores transcripts in real-time as webhooks arrive
+- No direct audio streaming (handled by Vapi)
 
 #### AnalysisService
 - Analyzes completed sessions
@@ -360,51 +360,64 @@ Authorization: Bearer <jwt_token>
 
 #### Sessions
 - `POST /api/sessions/generate-scenario` - Generate AI scenario
-- `POST /api/sessions` - Create new session
+- `POST /api/sessions` - Create new session + Vapi assistant
 - `GET /api/sessions` - List sessions (paginated)
 - `GET /api/sessions/{id}` - Get session details
 - `GET /api/sessions/{id}/transcript` - Get session transcript
 - `POST /api/sessions/{id}/analyze` - Trigger analysis
-- `WS /api/sessions/{id}/conversation` - WebSocket for real-time audio
+- `POST /api/vapi/webhooks/{sessionId}` - Vapi webhook handler for events
 
 #### Analytics
 - `GET /api/analytics/overview` - Overview stats
 - `GET /api/analytics/progress` - Progress over time
 - `GET /api/analytics/skills` - Skill breakdown
 
-### WebSocket Protocol
+### Vapi Integration
 
-#### Client → Server
-```json
-{
-  "type": "audio_chunk",
-  "data": "base64_audio_data",
-  "timestamp": 1234567890
-}
+#### Frontend (Vapi Web SDK)
+```typescript
+import Vapi from '@vapi-ai/web';
 
-{
-  "type": "control",
-  "action": "pause|resume|end"
-}
+const vapi = new Vapi(publicKey);
+
+// Start call with assistant ID from backend
+vapi.start(assistantId);
+
+// Listen for events
+vapi.on('call-start', () => { /* Call started */ });
+vapi.on('speech-start', () => { /* AI speaking */ });
+vapi.on('speech-end', () => { /* AI finished speaking */ });
+vapi.on('call-end', () => { /* Call ended, fetch analysis */ });
+vapi.on('message', (message) => {
+  if (message.type === 'transcript') {
+    // Display transcript in UI
+    displayTranscript(message);
+  }
+});
+
+// End call
+vapi.stop();
 ```
 
-#### Server → Client
+#### Backend (Vapi Webhooks)
+Vapi sends events to `POST /api/vapi/webhooks/{sessionId}`:
+
+**Event Types:**
+- `call-start`: Call initiated
+- `transcript`: Transcript entry (speaker, text, timestamp)
+- `status-update`: Call status changed
+- `call-end`: Call completed (includes final transcript, duration)
+
+**Example Webhook Payload:**
 ```json
 {
-  "type": "audio_response",
-  "data": "base64_audio_data"
-}
-
-{
   "type": "transcript",
-  "speaker": "user|ai",
-  "text": "...",
-  "timestamp": 1234567890
-}
-
-{
-  "type": "status",
-  "status": "connected|disconnected|error"
+  "timestamp": "2024-01-15T10:30:00Z",
+  "transcript": {
+    "role": "user",
+    "content": "Can you tell me about your pricing?",
+    "timestamp": 1234567890
+  }
 }
 ```
 
@@ -455,7 +468,7 @@ CREATE POLICY "Users can insert own products"
 - Python 3.11+
 - Supabase account
 - Anthropic API key
-- OpenAI API key
+- Vapi API key
 
 ### Frontend Setup
 ```bash
@@ -490,6 +503,7 @@ uvicorn app.main:app --reload
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_VAPI_PUBLIC_KEY=your_vapi_public_key
 ```
 
 **Backend (.env)**
@@ -498,7 +512,9 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_KEY=your_service_role_key
 SUPABASE_JWT_SECRET=your_jwt_secret
 ANTHROPIC_API_KEY=your_anthropic_key
-OPENAI_API_KEY=your_openai_key
+VAPI_API_KEY=your_vapi_api_key
+VAPI_WEBHOOK_SECRET=your_webhook_secret
+BACKEND_URL=http://localhost:8000
 ```
 
 ---
@@ -542,9 +558,9 @@ OPENAI_API_KEY=your_openai_key
 ### Technical Improvements
 - Redis caching for scenarios
 - Background job processing (Celery/RQ)
-- Advanced audio processing
 - Comprehensive testing suite
 - CI/CD pipeline
+- Voice customization (upgrade to ElevenLabs TTS)
 
 ---
 
@@ -552,14 +568,18 @@ OPENAI_API_KEY=your_openai_key
 
 ### Per Session Costs
 - **Scenario Generation**: $0.01-0.05 (Claude API)
-- **Voice Conversation**: $1.50-4.50 for 15 min (OpenAI Realtime API)
+- **Voice Conversation**: $0.90-1.65 for 15 min (Vapi with Claude)
+  - STT (Deepgram): ~$0.75-1.50
+  - LLM (Claude): ~$0.08
+  - TTS (Azure): ~$0.05
 - **Analysis**: $0.05-0.15 (Claude API)
-- **Total**: ~$1.60-$5.00 per session
+- **Total**: ~$1.00-1.85 per session (60-75% cheaper than OpenAI Realtime)
 
 ### Infrastructure (Monthly)
-- **Supabase**: Free tier (10GB database, 2GB storage)
+- **Supabase**: Free tier (10GB database)
 - **Vercel**: Free tier (hobby projects)
 - **Backend Hosting**: $5-20/month (Railway/Render)
+- **Vapi**: Pay-per-use (no fixed costs)
 
 ### Recommended Pricing
 - **Free Tier**: 3 sessions/month

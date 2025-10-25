@@ -5,7 +5,7 @@ An AI-powered platform that enables sales professionals to practice sales calls 
 ## Features
 
 - **AI-Generated Scenarios**: Custom personas and situations tailored to your product and target market
-- **Real-Time Voice Conversations**: Natural voice interactions with AI prospects using OpenAI Realtime API
+- **Real-Time Voice Conversations**: Natural voice interactions with AI prospects using Vapi
 - **Comprehensive Analysis**: Detailed performance feedback across 7 key sales dimensions
 - **Progress Tracking**: Monitor improvement over time with analytics and insights
 
@@ -23,7 +23,7 @@ An AI-powered platform that enables sales professionals to practice sales calls 
 - FastAPI
 - Supabase (PostgreSQL + Auth)
 - Claude API (Scenario Generation & Analysis)
-- OpenAI Realtime API (Voice Conversations)
+- Vapi (Voice Conversations)
 
 ## Project Structure
 
@@ -44,7 +44,7 @@ convo-ai/
 - Python 3.11+
 - Supabase account
 - Anthropic API key (Claude)
-- OpenAI API key
+- Vapi API key
 
 ### Setup Instructions
 
