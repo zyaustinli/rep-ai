@@ -46,8 +46,26 @@ export function useAuth() {
   };
 
   const signUp = async (email: string, password: string, fullName?: string) => {
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    // Check if email already exists using the secure database function
+    // This prevents duplicate registrations when email confirmation is enabled
+    const { data: emailExists, error: checkError } = await supabase
+      .rpc('check_email_exists', { check_email: normalizedEmail });
+
+    if (checkError) {
+      // If the function doesn't exist yet, continue with signup
+      // (for backwards compatibility during deployment)
+      console.warn('Email check function not available:', checkError);
+    } else if (emailExists === true) {
+      // Email is already registered
+      throw new Error('An account with this email already exists. Please sign in instead.');
+    }
+
+    // Proceed with signup if email doesn't exist
     const { error } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password,
       options: {
         data: {
@@ -55,7 +73,17 @@ export function useAuth() {
         },
       },
     });
-    if (error) throw error;
+
+    // Handle Supabase signup errors
+    if (error) {
+      // Check for common Supabase error messages for duplicate emails
+      if (error.message.includes('already registered') ||
+          error.message.includes('already been registered') ||
+          error.message.includes('duplicate')) {
+        throw new Error('An account with this email already exists. Please sign in instead.');
+      }
+      throw error;
+    }
   };
 
   const signOut = async () => {
