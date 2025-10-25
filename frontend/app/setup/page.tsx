@@ -3,10 +3,13 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api';
 
 export default function SetupPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     productName: '',
     productDescription: '',
@@ -24,10 +27,38 @@ export default function SetupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: API call to generate scenario and create session
-    console.log('Form data:', formData);
-    // For now, just navigate to practice with a dummy ID
-    router.push('/practice/demo-session');
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Step 1: Generate scenario using Claude
+      const scenarioResponse = await apiClient.sessions.generateScenarioSimple({
+        product_name: formData.productName,
+        product_description: formData.productDescription,
+        persona_description: formData.personaDescription,
+        difficulty: formData.difficulty,
+        call_type: formData.callType,
+        duration: 15
+      });
+
+      const scenario = scenarioResponse.data.scenario;
+
+      // Step 2: Create session with the generated scenario
+      const sessionResponse = await apiClient.sessions.create({
+        scenario: scenario,
+        difficulty: formData.difficulty,
+        call_type: formData.callType,
+      });
+
+      const session = sessionResponse.data;
+
+      // Step 3: Navigate to practice page
+      router.push(`/practice/${session.id}`);
+    } catch (err: any) {
+      console.error('Error creating session:', err);
+      setError(err.response?.data?.detail || 'Failed to create practice session. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -307,22 +338,48 @@ export default function SetupPage() {
                 </div>
               </div>
 
+              {/* Error Message */}
+              {error && (
+                <div className="mt-6 p-4 bg-red-50 border-2 border-red-200 rounded-xl">
+                  <div className="flex items-center">
+                    <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-red-800 font-medium">{error}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-between mt-8">
                 <button
                   type="button"
                   onClick={prevStep}
-                  className="px-8 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all"
+                  disabled={loading}
+                  className="px-8 py-3 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   ← Back
                 </button>
                 <button
                   type="submit"
-                  className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2"
+                  disabled={loading}
+                  className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 >
-                  Start Practice Session
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Generating Scenario...
+                    </>
+                  ) : (
+                    <>
+                      Start Practice Session
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

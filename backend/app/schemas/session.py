@@ -49,6 +49,16 @@ class ScenarioGenerateRequest(BaseModel):
     preferences: PreferencesInput
 
 
+class SimplifiedScenarioRequest(BaseModel):
+    """Simplified request matching frontend inputs"""
+    product_name: str
+    product_description: str
+    persona_description: str
+    difficulty: Difficulty
+    call_type: CallType
+    duration: int = 15  # minutes
+
+
 class SessionCreate(BaseModel):
     product_id: Optional[str] = None
     scenario: Dict[str, Any]
@@ -70,6 +80,10 @@ class Session(BaseModel):
     overall_score: Optional[int] = None
     overall_grade: Optional[str] = None
     created_at: datetime
+
+    # Vapi integration fields
+    assistant_id: Optional[str] = None  # Vapi assistant ID for this session
+    vapi_call_id: Optional[str] = None  # Vapi call ID when call is active
 
     class Config:
         from_attributes = True
@@ -95,3 +109,10 @@ class Transcript(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TranscriptSaveRequest(BaseModel):
+    """Request to save transcript from frontend after call ends"""
+    entries: List[TranscriptEntry]
+    duration_seconds: int
+    vapi_call_id: Optional[str] = None

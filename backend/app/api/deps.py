@@ -17,16 +17,40 @@ async def get_current_user(
     token = credentials.credentials
 
     try:
-        # Verify token with Supabase
-        user = supabase.auth.get_user(token)
-        if not user:
+        # Decode and verify JWT token using Supabase JWT secret
+        payload = jwt.decode(
+            token,
+            settings.supabase_jwt_secret,
+            algorithms=["HS256"],
+            audience="authenticated"
+        )
+
+        # Extract user_id from payload
+        user_id = payload.get("sub")
+        if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
+                detail="Invalid token payload",
             )
-        return user.user
-    except Exception as e:
+
+        # Return a simple user object with the data we need
+        class UserInfo:
+            def __init__(self, user_id, email):
+                self.id = user_id
+                self.email = email
+                self.user_metadata = payload.get("user_metadata", {})
+
+        return UserInfo(user_id, payload.get("email"))
+
+    except JWTError as e:
+        print(f"JWT Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
+            detail=f"Invalid authentication credentials: {str(e)}",
+        )
+    except Exception as e:
+        print(f"Auth Error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Authentication failed: {str(e)}",
         )

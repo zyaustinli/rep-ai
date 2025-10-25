@@ -31,9 +31,14 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     openai_api_key: str = ""
 
+    # Vapi Voice AI
+    vapi_api_key: str = ""  # Private key for server-side SDK
+    vapi_public_key: str = ""  # Public key for frontend
+
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"  # Ignore extra fields in .env that aren't defined in Settings
 
 
 settings = Settings()

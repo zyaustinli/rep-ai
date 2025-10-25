@@ -71,6 +71,10 @@ CREATE TABLE IF NOT EXISTS sessions (
     overall_score INTEGER CHECK (overall_score >= 0 AND overall_score <= 100),
     overall_grade TEXT,  -- A+, A, A-, B+, B, B-, etc.
 
+    -- Vapi integration fields
+    assistant_id TEXT,  -- Vapi assistant ID for this session
+    vapi_call_id TEXT,  -- Vapi call ID when call is active
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -83,6 +87,7 @@ CREATE INDEX IF NOT EXISTS idx_sessions_product_id ON sessions(product_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
 CREATE INDEX IF NOT EXISTS idx_sessions_created_at ON sessions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_completed_at ON sessions(completed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_assistant_id ON sessions(assistant_id);
 
 
 -- 4. TRANSCRIPTS TABLE

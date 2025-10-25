@@ -12,6 +12,7 @@
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
     "@supabase/supabase-js": "^2.45.0",
+    "@vapi-ai/web": "^2.5.0",
     "axios": "^1.7.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",

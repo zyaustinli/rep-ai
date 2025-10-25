@@ -1,24 +1,26 @@
 fastapi==0.111.0
 uvicorn[standard]==0.30.0
 python-dotenv==1.0.1
-pydantic==2.7.0
-pydantic-settings==2.2.1
+pydantic
+pydantic-settings
 
 # Database
-supabase==2.4.6
-postgrest==0.16.0
+supabase>=2.7.0
+postgrest>=2.22.0
+realtime>=2.0.0
 
 # AI/ML APIs
-anthropic==0.25.0
+anthropic>=0.40.0
 openai==1.30.0
+vapi-server-sdk
 
 # WebSocket
-websockets==12.0
+websockets>=13.0
 python-socketio==5.11.0
 
 # HTTP Client
-httpx>=0.24,<0.26
-aiohttp==3.9.5
+httpx>=0.24
+aiohttp>=3.9.5
 
 # Utils
 python-multipart==0.0.9
