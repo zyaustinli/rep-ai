@@ -75,7 +75,18 @@ async def trigger_audio_analysis_background(session_id: str, recording_url: str)
             # If no analysis record exists yet, create one
             supabase.table("analyses").insert(db_data).execute()
 
-        logger.info(f"Successfully completed audio analysis for session {session_id}")
+        # IMPORTANT: Update the session's overall_score field
+        # This is what the dashboard queries to show stats
+        overall_score = db_data.get("overall_score")
+        overall_grade = db_data.get("overall_grade")
+
+        if overall_score is not None:
+            supabase.table("sessions").update({
+                "overall_score": overall_score,
+                "overall_grade": overall_grade
+            }).eq("id", session_id).execute()
+
+        logger.info(f"Completed audio analysis for session {session_id}")
 
     except Exception as e:
         logger.error(f"Failed to analyze audio for session {session_id}: {str(e)}", exc_info=True)
@@ -512,6 +523,18 @@ async def analyze_session_audio(
         if not update_result.data:
             # If no analysis record exists yet, create one
             supabase.table("analyses").insert(db_data).execute()
+
+        # IMPORTANT: Update the session's overall_score field
+        # This is what the dashboard queries to show stats
+        overall_score = db_data.get("overall_score")
+        overall_grade = db_data.get("overall_grade")
+
+        if overall_score is not None:
+            supabase.table("sessions").update({
+                "overall_score": overall_score,
+                "overall_grade": overall_grade
+            }).eq("id", session_id).execute()
+
     except Exception as e:
         logger.error(f"Failed to save audio analysis for session {session_id}: {str(e)}")
         raise HTTPException(

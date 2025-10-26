@@ -13,6 +13,7 @@ export default function PracticePage({ params }: { params: { sessionId: string }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [isEnding, setIsEnding] = useState(false);
 
   // Initialize Vapi hook
   const vapi = useVapi();
@@ -54,6 +55,8 @@ export default function PracticePage({ params }: { params: { sessionId: string }
 
   // End the call and save transcript
   const handleEndCall = async () => {
+    // Immediately set ending state to show loading screen
+    setIsEnding(true);
     setSaving(true);
 
     try {
@@ -77,11 +80,12 @@ export default function PracticePage({ params }: { params: { sessionId: string }
 
       // Navigate to review page (using replace to avoid back button showing call screen)
       router.replace(`/review/${params.sessionId}`);
-      // Note: Don't set saving to false - let navigation happen while showing saving state
+      // Note: Don't set saving/ending to false - let navigation happen while showing loading state
     } catch (err: any) {
       console.error('Error saving transcript:', err);
       setError('Failed to save transcript. Please try again.');
       setSaving(false);
+      setIsEnding(false);
     }
   };
 
@@ -132,13 +136,36 @@ export default function PracticePage({ params }: { params: { sessionId: string }
     );
   }
 
+  // Show loading state when ending call (prevents flash of start call screen)
+  if (isEnding) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12">
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">Saving Your Session</h2>
+            <p className="text-slate-600 mb-8">
+              Preparing your performance analysis...
+            </p>
+
+            {/* Progress Dots */}
+            <div className="flex justify-center gap-2">
+              <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link href="/dashboard" className="text-2xl font-bold text-slate-900">
-            Convo AI
+            Rep
           </Link>
           <div className="flex items-center gap-4">
             <div className="text-slate-600 text-sm">Session ID: {params.sessionId.slice(0, 8)}...</div>

@@ -76,6 +76,20 @@ export default function ReviewPage({ params }: { params: { sessionId: string } }
         try {
           const analysisResponse = await apiClient.analysis.get(params.sessionId);
           setAnalysis(analysisResponse.data);
+
+          // DEBUG: Check if transcriptAnalysis is present
+          const audioAnalysis = analysisResponse.data?.audio_analysis;
+          if (audioAnalysis) {
+            console.log('[DEBUG] Audio analysis received');
+            if (audioAnalysis.transcriptAnalysis) {
+              console.log(`[DEBUG] ✓ transcriptAnalysis found with ${audioAnalysis.transcriptAnalysis.length} entries`);
+              console.log('[DEBUG] First entry:', audioAnalysis.transcriptAnalysis[0]);
+            } else {
+              console.log('[DEBUG] ✗ transcriptAnalysis NOT found in audio_analysis');
+              console.log('[DEBUG] Available keys:', Object.keys(audioAnalysis));
+            }
+          }
+
           setRetryingAnalysis(false);
           clearInterval(pollInterval);
         } catch (err) {
@@ -126,17 +140,38 @@ export default function ReviewPage({ params }: { params: { sessionId: string } }
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const parseTimestamp = (timestamp: string): number => {
+    // Parse MM:SS format to milliseconds
+    const parts = timestamp.split(':');
+    if (parts.length === 2) {
+      const minutes = parseInt(parts[0], 10);
+      const seconds = parseInt(parts[1], 10);
+      return (minutes * 60 + seconds) * 1000;
+    }
+    return 0;
+  };
+
+  const formatMarkdownBold = (text: string): JSX.Element => {
+    // Replace **text** with <strong>text</strong>
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return (
+      <>
+        {parts.map((part, idx) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            // Remove ** and make bold
+            return <strong key={idx}>{part.slice(2, -2)}</strong>;
+          }
+          return <span key={idx}>{part}</span>;
+        })}
+      </>
+    );
   };
 
   // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center flex flex-col items-center">
           <LoadingSpinner size="lg" />
           <p className="mt-6 text-slate-600 font-medium">Loading your results...</p>
         </div>
@@ -170,19 +205,13 @@ export default function ReviewPage({ params }: { params: { sessionId: string } }
         <nav className="bg-white border-b border-slate-200">
           <div className="container mx-auto px-6 py-4">
             <Link href="/dashboard" className="text-xl font-bold text-slate-900">
-              Convo AI
+              Rep
             </Link>
           </div>
         </nav>
 
         <div className="container mx-auto px-6 py-20 max-w-2xl">
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-12 text-center">
-            {/* Animated Loading Spinner */}
-            <div className="w-20 h-20 mx-auto mb-6 relative">
-              <div className="w-20 h-20 border-4 border-slate-200 rounded-full"></div>
-              <div className="w-20 h-20 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin absolute top-0 left-0"></div>
-            </div>
-
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Analyzing Your Performance</h2>
             <p className="text-slate-600 mb-2 max-w-md mx-auto">
               Our AI is analyzing your call recording and preparing detailed feedback.
@@ -220,7 +249,7 @@ export default function ReviewPage({ params }: { params: { sessionId: string } }
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link href="/dashboard" className="text-xl font-bold text-slate-900">
-            Convo AI
+            Rep
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/dashboard" className="text-slate-600 hover:text-slate-900 font-medium text-sm">
@@ -571,6 +600,18 @@ export default function ReviewPage({ params }: { params: { sessionId: string } }
           <div className="space-y-6">
             {transcript && transcript.entries.length > 0 ? (
               <>
+                {/* DEBUG: Log data availability */}
+                {(() => {
+                  console.log('[DEBUG] Transcript tab loaded');
+                  console.log('[DEBUG] Transcript entries:', transcript.entries.length);
+                  console.log('[DEBUG] Audio analysis exists:', !!audioAnalysis);
+                  console.log('[DEBUG] transcriptAnalysis exists:', !!audioAnalysis?.transcriptAnalysis);
+                  if (audioAnalysis?.transcriptAnalysis) {
+                    console.log('[DEBUG] transcriptAnalysis count:', audioAnalysis.transcriptAnalysis.length);
+                    console.log('[DEBUG] Sample analysis:', audioAnalysis.transcriptAnalysis[0]);
+                  }
+                  return null;
+                })()}
                 {/* Stats */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
@@ -633,8 +674,8 @@ export default function ReviewPage({ params }: { params: { sessionId: string } }
                 </div>
 
                 {/* Transcript */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                  <div className="flex items-center gap-3 mb-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="flex items-center gap-3 p-8 pb-6 border-b border-slate-100">
                     <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
                       <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -643,46 +684,164 @@ export default function ReviewPage({ params }: { params: { sessionId: string } }
                     <h2 className="text-2xl font-bold text-slate-900">Conversation</h2>
                   </div>
 
-                  <div className="space-y-6 max-h-[700px] overflow-y-auto pr-4 custom-scrollbar">
-                    {transcript.entries.map((entry, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex gap-4 animate-fadeIn ${entry.speaker === 'user' ? 'flex-row-reverse' : ''}`}
-                        style={{ animationDelay: `${idx * 0.05}s` }}
-                      >
-                        <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                          entry.speaker === 'user' ? 'bg-blue-100' : 'bg-slate-100'
-                        }`}>
-                          <svg className={`w-5 h-5 ${entry.speaker === 'user' ? 'text-blue-600' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            {entry.speaker === 'user' ? (
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            ) : (
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            )}
-                          </svg>
-                        </div>
+                  <div className="space-y-6 max-h-[700px] overflow-y-auto p-8 custom-scrollbar">
+                    {transcript.entries.map((entry, idx) => {
+                      // Get relative time from start of call (in milliseconds)
+                      const firstEntryTime = transcript.entries[0]?.timestamp;
+                      const entryRelativeTime = firstEntryTime
+                        ? new Date(entry.timestamp).getTime() - new Date(firstEntryTime).getTime()
+                        : 0;
 
-                        <div className={`flex-1 ${entry.speaker === 'user' ? 'text-right' : ''}`}>
-                          <div className={`inline-block max-w-[85%] ${
-                            entry.speaker === 'user'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-50 text-slate-900 border border-slate-200'
-                          } px-6 py-4 rounded-2xl ${
-                            entry.speaker === 'user' ? 'rounded-br-sm' : 'rounded-bl-sm'
+                      // Find analysis for this message (only for user messages)
+                      const messageAnalysis = entry.speaker === 'user' && audioAnalysis?.transcriptAnalysis
+                        ? audioAnalysis.transcriptAnalysis.find((ta: any) => {
+                            // Match by approximate timestamp (within 10 seconds)
+                            const analysisTime = parseTimestamp(ta.timestamp); // Returns milliseconds
+                            const timeDiff = Math.abs(entryRelativeTime - analysisTime);
+
+                            // DEBUG: Log matching attempts for first 5 user messages
+                            if (idx < 5 && entry.speaker === 'user') {
+                              console.log(`[DEBUG] Matching entry ${idx}:`, {
+                                entryText: entry.text.substring(0, 50),
+                                entryRelativeTime: entryRelativeTime,
+                                entryRelativeSeconds: (entryRelativeTime / 1000).toFixed(1),
+                                analysisTimestamp: ta.timestamp,
+                                analysisTime: analysisTime,
+                                analysisSeconds: (analysisTime / 1000).toFixed(1),
+                                timeDiff: timeDiff,
+                                timeDiffSeconds: (timeDiff / 1000).toFixed(1),
+                                matched: timeDiff < 10000
+                              });
+                            }
+
+                            return timeDiff < 10000; // Within 10 seconds
+                          })
+                        : null;
+
+                      // DEBUG: Log if analysis was found
+                      if (idx < 5 && entry.speaker === 'user') {
+                        console.log(`[DEBUG] Entry ${idx} analysis result:`, messageAnalysis ? 'FOUND ✓' : 'NOT FOUND ✗');
+                        if (messageAnalysis) {
+                          console.log(`[DEBUG] Matched with rating: ${messageAnalysis.rating}, score: ${messageAnalysis.score}`);
+                        }
+                      }
+
+                      // Get border/background color based on rating
+                      const getRatingStyle = (rating: string | undefined) => {
+                        if (!rating) return '';
+                        switch (rating) {
+                          case 'good':
+                            return 'border-2 border-emerald-400 shadow-emerald-100';
+                          case 'average':
+                            return 'border-2 border-amber-400 shadow-amber-100';
+                          case 'poor':
+                            return 'border-2 border-red-400 shadow-red-100';
+                          default:
+                            return '';
+                        }
+                      };
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex gap-4 animate-fadeIn ${entry.speaker === 'user' ? 'flex-row-reverse' : ''} relative group/message hover:z-[100]`}
+                          style={{ animationDelay: `${idx * 0.05}s` }}
+                        >
+                          <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                            entry.speaker === 'user' ? 'bg-blue-100' : 'bg-slate-100'
                           }`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="font-semibold text-xs">
-                                {entry.speaker === 'user' ? 'You' : session?.scenario?.persona?.name || 'AI Prospect'}
-                              </span>
-                              <span className={`text-xs ${entry.speaker === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
-                                {formatTime(entry.timestamp)}
-                              </span>
+                            <svg className={`w-5 h-5 ${entry.speaker === 'user' ? 'text-blue-600' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              {entry.speaker === 'user' ? (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              ) : (
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                              )}
+                            </svg>
+                          </div>
+
+                          <div className={`flex-1 ${entry.speaker === 'user' ? 'text-right' : ''} group relative`}>
+                            <div className={`inline-block max-w-[85%] ${
+                              entry.speaker === 'user'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-50 text-slate-900 border border-slate-200'
+                            } px-6 py-4 rounded-2xl ${
+                              entry.speaker === 'user' ? 'rounded-br-sm' : 'rounded-bl-sm'
+                            } ${messageAnalysis ? getRatingStyle(messageAnalysis.rating) : ''} ${
+                              messageAnalysis ? 'cursor-help shadow-lg' : ''
+                            } transition-all`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold text-xs">
+                                  {entry.speaker === 'user' ? 'You' : session?.scenario?.persona?.name || 'AI Prospect'}
+                                </span>
+                                <span className={`text-xs ${entry.speaker === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
+                                  {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                </span>
+                                {messageAnalysis && (
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                    messageAnalysis.rating === 'good' ? 'bg-emerald-100 text-emerald-700' :
+                                    messageAnalysis.rating === 'average' ? 'bg-amber-100 text-amber-700' :
+                                    'bg-red-100 text-red-700'
+                                  }`}>
+                                    {messageAnalysis.score}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">{entry.text}</p>
                             </div>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{entry.text}</p>
+
+                            {/* Analysis Tooltip */}
+                            {messageAnalysis && (
+                              <div className={`absolute ${
+                                entry.speaker === 'user' ? 'right-0' : 'left-0'
+                              } top-full mt-2 w-96 bg-white rounded-xl shadow-2xl border border-slate-200 p-6 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999]`}>
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                                    <h4 className="font-bold text-slate-900">{messageAnalysis.category}</h4>
+                                    <span className={`text-lg font-bold ${
+                                      messageAnalysis.rating === 'good' ? 'text-emerald-600' :
+                                      messageAnalysis.rating === 'average' ? 'text-amber-600' :
+                                      'text-red-600'
+                                    }`}>
+                                      {messageAnalysis.score}/100
+                                    </span>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs font-semibold text-slate-700 mb-2 flex items-center gap-1">
+                                      {messageAnalysis.rating === 'good' ? (
+                                        <>
+                                          <svg className="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                          </svg>
+                                          Well Done
+                                        </>
+                                      ) : messageAnalysis.rating === 'average' ? (
+                                        <>
+                                          <svg className="w-3 h-3 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                          </svg>
+                                          Needs Improvement
+                                        </>
+                                      ) : (
+                                        <>
+                                          <svg className="w-3 h-3 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                          </svg>
+                                          Significant Issues
+                                        </>
+                                      )}
+                                    </p>
+                                    <p className="text-sm text-slate-700 leading-relaxed">
+                                      {messageAnalysis.feedback}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </>
@@ -741,7 +900,7 @@ export default function ReviewPage({ params }: { params: { sessionId: string } }
                       <div className="flex-shrink-0 w-8 h-8 bg-indigo-600 text-white rounded-lg flex items-center justify-center font-bold text-sm">
                         {idx + 1}
                       </div>
-                      <p className="text-slate-700 leading-relaxed flex-1">{rec}</p>
+                      <p className="text-slate-700 leading-relaxed flex-1">{formatMarkdownBold(rec)}</p>
                     </div>
                   </div>
                 ))}

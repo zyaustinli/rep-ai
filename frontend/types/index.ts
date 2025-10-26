@@ -125,6 +125,16 @@ export interface AudioSpecificInsights {
   clarityScore: number;
 }
 
+export interface TranscriptMessageAnalysis {
+  timestamp: string;
+  speaker: string;
+  text: string;
+  rating: 'good' | 'average' | 'poor';
+  score: number;
+  feedback: string;
+  category: string;
+}
+
 export interface GeminiAudioAnalysis {
   categories: GeminiCategory[];
   overallScore: number;
@@ -133,6 +143,7 @@ export interface GeminiAudioAnalysis {
   criticalWeaknesses: string[];
   audioSpecificInsights: AudioSpecificInsights;
   actionableRecommendations: string[];
+  transcriptAnalysis?: TranscriptMessageAnalysis[];
 }
 
 // Updated Analysis interface matching new database schema

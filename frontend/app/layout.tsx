@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Convo AI - Sales Call Practice Platform",
-  description: "Practice sales calls with AI-powered role-play scenarios",
+  title: "Rep - Sales Call Practice Platform",
+  description: "Practice sales calls with AI-powered role-play scenarios. Master your pitch, handle objections, and close more deals.",
 };
 
 export default function RootLayout({

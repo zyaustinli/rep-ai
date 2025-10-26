@@ -6,7 +6,7 @@ export default function HomePage() {
       {/* Header */}
       <nav className="bg-white border-b border-slate-200">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-slate-900">Convo AI</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Rep</h1>
           <div className="flex gap-3">
             <Link
               href="/login"

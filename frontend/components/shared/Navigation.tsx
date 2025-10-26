@@ -19,7 +19,7 @@ export function Navigation() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <Link href="/dashboard" className="text-xl font-bold text-blue-600">
-              Convo AI
+              Rep
             </Link>
             <div className="ml-10 flex items-center space-x-4">
               {navItems.map((item) => (
