@@ -13,9 +13,26 @@ export default function HintPanel({ hints, isVisible, onToggle }: HintPanelProps
   // Auto-scroll to latest hint when new ones arrive
   useEffect(() => {
     if (isVisible && hints.length > 0) {
-      hintsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      hintsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }, [hints.length, isVisible]);
+
+  // Parse markdown-style bold text (**text**) into React elements
+  const parseHintText = (text: string) => {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+
+    return parts.map((part, index) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        // Remove the asterisks and render as bold
+        return (
+          <strong key={index} className="font-semibold text-slate-900">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return <span key={index}>{part}</span>;
+    });
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
@@ -52,7 +69,7 @@ export default function HintPanel({ hints, isVisible, onToggle }: HintPanelProps
 
       {/* Content (collapsible) */}
       {isVisible && (
-        <div className="p-4 max-h-64 overflow-y-auto space-y-3">
+        <div className="p-4 max-h-[500px] overflow-y-auto space-y-3">
           {hints.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               <svg className="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -65,10 +82,10 @@ export default function HintPanel({ hints, isVisible, onToggle }: HintPanelProps
               {hints.map((hint) => (
                 <div
                   key={hint.id}
-                  className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 animate-in fade-in slide-in-from-top-2 duration-300"
+                  className="bg-indigo-50 border border-indigo-100 rounded-xl p-3 animate-in fade-in slide-in-from-bottom-2 duration-300"
                 >
                   <p className="text-slate-800 text-sm leading-relaxed whitespace-pre-wrap">
-                    {hint.hint_text}
+                    {parseHintText(hint.hint_text)}
                   </p>
                 </div>
               ))}

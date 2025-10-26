@@ -41,12 +41,12 @@ export const useHints = (sessionId: string, isConnected: boolean): UseHintsRetur
         const newHints = response.data.hints || [];
 
         if (newHints.length > 0) {
-          // Prepend new hints (latest first)
+          // Append new hints (oldest first, newest last)
           setHints(prev => {
             // Avoid duplicates by checking IDs
             const existingIds = new Set(prev.map(h => h.id));
             const uniqueNewHints = newHints.filter((h: SessionHint) => !existingIds.has(h.id));
-            return [...uniqueNewHints, ...prev];
+            return [...prev, ...uniqueNewHints];
           });
 
           console.log(`[useHints] Received ${newHints.length} new hint(s)`);

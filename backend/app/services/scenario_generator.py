@@ -317,15 +317,43 @@ Your task is to create a comprehensive, realistic sales call scenario. Based on 
    - List 2-3 competitors they might be considering (use REAL competitor names from your searches)
 
 3. **Objections** (USE WEB SEARCH - create realistic objections based on actual competitive intelligence and market data):
-   - For "easy": 1-2 soft objections that are easy to overcome
-   - For "medium": 3 moderate objections requiring good technique
-   - For "hard": 4-5 challenging objections including price, timing, and competition
-   - For "expert": 5+ tough objections with hidden agendas and complex buying dynamics
+
+   **DIFFICULTY LEVEL SPECIFICATIONS:**
+
+   🟢 **EASY** - Friendly & Receptive Prospect:
+   - Only 1-2 soft, superficial objections (e.g., "Just want to understand the pricing" or "When can we get started?")
+   - Objections are more like questions than real concerns
+   - Should be overcome with simple, straightforward answers
+   - Prospect is already somewhat sold on the idea
+   - Example: "I'm interested, but can you help me understand the implementation timeline?"
+
+   🟡 **MEDIUM** - Moderately Skeptical Prospect:
+   - 2-3 moderate objections that require proper sales technique
+   - Mix of price, timing, or mild competitive concerns
+   - One objection might require a follow-up question or two
+   - Prospect is genuinely interested but needs convincing
+   - Example: "Your pricing seems a bit higher than [Competitor]. What makes you worth the premium?"
+
+   🟠 **HARD** - Skeptical & Challenging Prospect:
+   - 3-4 challenging objections including price, competition, and authority/timing
+   - Requires strong value proposition and multiple back-and-forth exchanges
+   - May ask 2-3 follow-up questions per objection before being satisfied
+   - Mentions specific competitor advantages they've researched
+   - Example: "I've been talking to [Competitor] and they offer [specific feature] at [lower price]. Plus, I'm not sure my team would adopt this. How do you address that?"
+
+   🔴 **EXPERT** - Highly Skeptical with Complex Concerns:
+   - 4-5+ tough objections with layered concerns and hidden agendas
+   - Multiple stakeholders mentioned, complex buying dynamics
+   - Will ask 4-5 deep follow-up questions and challenge responses
+   - Brings up specific competitive research, pricing details, implementation concerns
+   - May have budget constraints, political concerns, past bad experiences
+   - Example: "Look, I've implemented 3 solutions like this before and they all failed. Your competitor offers 90% of your features at half the cost, plus they have better integration with our existing stack. Our CFO is pushing hard for cost reduction. Why should I risk my reputation on this?"
 
    For each objection include:
    - Type (price, timing, competition, authority, need, trust, etc.)
    - Exact wording they'll use (reference REAL competitors, actual pricing you found, specific features)
    - Ideal response approach
+   - **For harder difficulties:** Expected follow-up questions they'll ask after the initial response
 
    **Make objections realistic by:**
    - Using actual competitor names and their real advantages you discovered
@@ -409,6 +437,152 @@ EXAMPLES OF GOOD VS. BAD USE OF WEB SEARCH:
 "Budget: $45,000-$60,000 annually (aligned with industry standard of $500-700/user for mid-market sales teams of 100 people)"
 
 **The difference:** Specificity, current data, real numbers, actual competitors, and industry context.
+
+═══════════════════════════════════════════════════════════
+DIFFICULTY LEVEL EXAMPLES (CRITICAL - FOLLOW THESE PATTERNS):
+═══════════════════════════════════════════════════════════
+
+🟢 **EASY EXAMPLE - Friendly CRM Buyer:**
+```json
+{{
+  "persona": {{
+    "name": "Sarah Mitchell",
+    "role": "Sales Manager",
+    "company": "TechStart Inc",
+    "personality": "Friendly, enthusiastic, solution-oriented",
+    "communicationStyle": "Warm and conversational, asks clarifying questions",
+    "decisionAuthority": "decision-maker",
+    "reportingTo": "VP of Sales"
+  }},
+  "objections": [
+    {{
+      "type": "clarification",
+      "objection": "Can you help me understand how the implementation process works? I want to make sure it's smooth for my team.",
+      "idealResponse": "Walk through implementation timeline and support provided"
+    }},
+    {{
+      "type": "timing",
+      "objection": "This sounds great! When could we realistically get started?",
+      "idealResponse": "Provide specific timeline and next steps"
+    }}
+  ]
+}}
+```
+**Note:** Objections are really questions. Prospect WANTS to buy and just needs basic info.
+
+🟡 **MEDIUM EXAMPLE - Cautious Marketing Director:**
+```json
+{{
+  "persona": {{
+    "name": "Michael Chen",
+    "role": "Marketing Director",
+    "company": "GrowthCo",
+    "personality": "Professional, data-driven, somewhat skeptical",
+    "communicationStyle": "Direct and business-focused, wants specifics",
+    "decisionAuthority": "influencer",
+    "reportingTo": "CMO"
+  }},
+  "objections": [
+    {{
+      "type": "price",
+      "objection": "Your pricing is about 30% higher than HubSpot's similar tier. What justifies that premium?",
+      "idealResponse": "Explain specific differentiators, ROI data, and unique features that justify cost"
+    }},
+    {{
+      "type": "competition",
+      "objection": "We've been using MailChimp for years. Why should we switch now?",
+      "idealResponse": "Acknowledge their current solution, then highlight specific gaps and switching benefits"
+    }},
+    {{
+      "type": "need",
+      "objection": "I'm not sure we need all these advanced features. Can you help me understand which ones would actually impact our bottom line?",
+      "idealResponse": "Ask discovery questions about their goals, then map specific features to their needs"
+    }}
+  ]
+}}
+```
+**Note:** Real concerns that need proper answers with examples and data. Not hostile, but won't accept vague responses.
+
+🟠 **HARD EXAMPLE - Skeptical IT Director:**
+```json
+{{
+  "persona": {{
+    "name": "Jennifer Torres",
+    "role": "IT Director",
+    "company": "Enterprise Systems Corp",
+    "personality": "Skeptical, analytical, risk-averse due to past failures",
+    "communicationStyle": "Challenging, asks tough follow-ups, compares to competitors",
+    "decisionAuthority": "recommender",
+    "reportingTo": "CTO"
+  }},
+  "objections": [
+    {{
+      "type": "trust",
+      "objection": "We implemented a similar tool 18 months ago and it was a disaster. Cost us $200K and my team spent 6 months on it before we scrapped it. Why would this be any different?",
+      "idealResponse": "Acknowledge concern, ask what went wrong, explain specific safeguards and differentiation"
+    }},
+    {{
+      "type": "competition",
+      "objection": "I've been talking to ServiceNow and they offer enterprise-grade security, SOC 2 Type II compliance, and their integration with our existing stack is seamless. You're also $80K more expensive annually. Make your case.",
+      "idealResponse": "Don't bash competitor, acknowledge their strengths, then differentiate on specific capabilities, ease of use, or implementation speed with proof"
+    }},
+    {{
+      "type": "price",
+      "objection": "Even if I was sold on this - which I'm not yet - our CFO has mandated a 20% budget cut across all departments. How am I supposed to justify adding $150K in new spend?",
+      "idealResponse": "Shift to ROI and cost savings, quantify value, explore phased rollout or different package options"
+    }},
+    {{
+      "type": "authority",
+      "objection": "I report to a CTO who's extremely cautious about new vendors after our last integration nightmare. He'll want to see proof this won't disrupt our operations. What do you have?",
+      "idealResponse": "Provide case studies, reference customers, pilot program options, implementation plan"
+    }}
+  ]
+}}
+```
+**Note:** Multiple tough objections with context. Past pain points. Competitor research. Budget constraints. Requires excellent objection handling.
+
+🔴 **EXPERT EXAMPLE - Highly Skeptical CFO:**
+```json
+{{
+  "persona": {{
+    "name": "David Nakamura",
+    "role": "Chief Financial Officer",
+    "company": "Global Finance Holdings",
+    "personality": "Extremely skeptical, numbers-focused, burned by vendors before, under board pressure",
+    "communicationStyle": "Blunt, challenging, wants hard ROI data, mentions multiple stakeholders",
+    "decisionAuthority": "decision-maker with complex approval process",
+    "reportingTo": "Board of Directors"
+  }},
+  "objections": [
+    {{
+      "type": "trust",
+      "objection": "I've been pitched by 6 vendors this month alone. Everyone claims to save money and improve efficiency. Our last 3 software implementations went over budget and under-delivered. Two vendors we worked with went out of business mid-contract. Why should I believe you're different?",
+      "idealResponse": "Acknowledge pattern, provide financial stability proof, show risk mitigation, offer references from similar situations"
+    }},
+    {{
+      "type": "competition",
+      "objection": "I'm literally in final negotiations with Oracle and SAP. Oracle is offering a 35% discount if we sign this quarter, and SAP is throwing in their analytics suite for free. You're a startup asking for $500K. The board will laugh me out of the room. And by the way, what happens to my investment if you get acquired or shut down?",
+      "idealResponse": "Don't compete head-to-head with enterprise giants, differentiate on agility/innovation/ROI timeline, address vendor risk with contractual protections"
+    }},
+    {{
+      "type": "price",
+      "objection": "Let's talk numbers. Your price is $500K annually. We're under a mandate to cut costs by 15% across the board. The board is breathing down my neck about every dollar. I have 3 departments fighting for budget. You need to tell me, specifically, how I'm getting $750K in value year one to justify this. And I'll fact-check your math.",
+      "idealResponse": "Present detailed ROI model with conservative assumptions, quantify current costs/inefficiencies, show payback period, offer staged implementation"
+    }},
+    {{
+      "type": "authority",
+      "objection": "Even if I was sold - and I'm not - I need buy-in from our CEO, CTO, and COO. The CEO cares about growth metrics. The CTO is risk-averse after our last security incident. The COO is worried about operational disruption. They all have veto power. How do you address all three?",
+      "idealResponse": "Address each stakeholder's concern specifically, offer stakeholder-specific materials, suggest multi-party demo"
+    }},
+    {{
+      "type": "implementation",
+      "objection": "Our IT team is already running 3 major projects this quarter. They're stretched thin. We have a hiring freeze so I can't add headcount. Your implementation requires 200 hours of our team's time according to your own docs. We don't have it. Plus, if this disrupts operations in Q4 - our biggest quarter - that's my head. What's your answer?",
+      "idealResponse": "Offer professional services to reduce customer burden, phased rollout to minimize disruption, implementation timeline flexibility"
+    }}
+  ]
+}}
+```
+**Note:** Extremely complex with layered concerns, multiple stakeholders, past failures, competitive pressure, budget constraints, and political dynamics. Requires masterful selling.
 
 ═══════════════════════════════════════════════════════════
 

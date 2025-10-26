@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
@@ -19,6 +19,9 @@ export default function PracticePage({ params }: { params: { sessionId: string }
 
   // Initialize Vapi hook
   const vapi = useVapi();
+
+  // Ref for auto-scrolling transcript
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   // Hints state and hook
   const [hintsVisible, setHintsVisible] = useState(true);
@@ -48,6 +51,13 @@ export default function PracticePage({ params }: { params: { sessionId: string }
 
     fetchSession();
   }, [params.sessionId]);
+
+  // Auto-scroll transcript to bottom when new messages arrive
+  useEffect(() => {
+    if (vapi.transcript.length > 0) {
+      transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [vapi.transcript.length]);
 
   // Start the call
   const handleStartCall = async () => {
@@ -280,33 +290,36 @@ export default function PracticePage({ params }: { params: { sessionId: string }
                     <p>Start speaking to see the transcript...</p>
                   </div>
                 ) : (
-                  vapi.transcript.map((msg, idx) => (
-                    <div key={idx} className={`flex gap-3 ${msg.speaker === 'user' ? 'flex-row-reverse' : ''}`}>
-                      <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
-                        msg.speaker === 'user' ? 'bg-blue-100' : 'bg-slate-100'
-                      }`}>
-                        <svg className={`w-5 h-5 ${msg.speaker === 'user' ? 'text-blue-600' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          {msg.speaker === 'user' ? (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          ) : (
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          )}
-                        </svg>
-                      </div>
-                      <div className={`flex-1 ${msg.speaker === 'user' ? 'text-right' : ''}`}>
-                        <div className={`inline-block max-w-[80%] px-4 py-3 rounded-2xl ${
-                          msg.speaker === 'user'
-                            ? 'bg-blue-600 text-white rounded-br-sm'
-                            : 'bg-slate-50 text-slate-900 border border-slate-200 rounded-bl-sm'
+                  <>
+                    {vapi.transcript.map((msg, idx) => (
+                      <div key={idx} className={`flex gap-3 ${msg.speaker === 'user' ? 'flex-row-reverse' : ''}`}>
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${
+                          msg.speaker === 'user' ? 'bg-blue-100' : 'bg-slate-100'
                         }`}>
-                          <p className="text-sm">{msg.text}</p>
-                          <p className={`text-xs mt-1 ${msg.speaker === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
-                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </p>
+                          <svg className={`w-5 h-5 ${msg.speaker === 'user' ? 'text-blue-600' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            {msg.speaker === 'user' ? (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            ) : (
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            )}
+                          </svg>
+                        </div>
+                        <div className={`flex-1 ${msg.speaker === 'user' ? 'text-right' : ''}`}>
+                          <div className={`inline-block max-w-[80%] px-4 py-3 rounded-2xl ${
+                            msg.speaker === 'user'
+                              ? 'bg-blue-600 text-white rounded-br-sm'
+                              : 'bg-slate-50 text-slate-900 border border-slate-200 rounded-bl-sm'
+                          }`}>
+                            <p className="text-sm">{msg.text}</p>
+                            <p className={`text-xs mt-1 ${msg.speaker === 'user' ? 'text-blue-200' : 'text-slate-400'}`}>
+                              {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                    <div ref={transcriptEndRef} />
+                  </>
                 )}
               </div>
             </div>
@@ -322,6 +335,13 @@ export default function PracticePage({ params }: { params: { sessionId: string }
                   Recording in progress
                 </div>
               </div>
+
+              {/* Product Knowledge Hints */}
+              <HintPanel
+                hints={hints}
+                isVisible={hintsVisible}
+                onToggle={() => setHintsVisible(!hintsVisible)}
+              />
 
               {/* Audio Visualizer */}
               <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -379,13 +399,6 @@ export default function PracticePage({ params }: { params: { sessionId: string }
                   </button>
                 </div>
               </div>
-
-              {/* Product Knowledge Hints */}
-              <HintPanel
-                hints={hints}
-                isVisible={hintsVisible}
-                onToggle={() => setHintsVisible(!hintsVisible)}
-              />
             </div>
           </div>
         )}

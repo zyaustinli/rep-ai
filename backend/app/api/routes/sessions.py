@@ -22,10 +22,14 @@ import asyncio
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# MESSAGE DEDUPLICATION: Track processed transcripts to prevent duplicate RAG calls
+# Structure: {session_id: set(message_hashes)}
+processed_transcript_hashes = {}
+
 # MODULE LOAD CONFIRMATION
-logger.warning("🔥🔥🔥 SESSIONS.PY MODULE LOADED WITH NEW DEBUG CODE - v3 🔥🔥🔥")
+logger.warning("🔥🔥🔥 SESSIONS.PY MODULE LOADED WITH NEW DEBUG CODE - v4 (with deduplication) 🔥🔥🔥")
 print("=" * 80)
-print("🔥🔥🔥 SESSIONS.PY MODULE LOADED WITH NEW DEBUG CODE - v3 🔥🔥🔥")
+print("🔥🔥🔥 SESSIONS.PY MODULE LOADED WITH NEW DEBUG CODE - v4 (with deduplication) 🔥🔥🔥")
 print("=" * 80)
 
 
@@ -718,47 +722,54 @@ async def vapi_webhook(
         # Handle different event types
         print(f"🔀 Checking event type branches...")
 
-        # RAG Pipeline: Process AI questions for product knowledge hints
-        print(f"🔍 Checking if event_type == 'conversation-update': {event_type} == 'conversation-update' → {event_type == 'conversation-update'}")
+        # RAG Pipeline: Use transcript events to detect complete utterances
+        print(f"🔍 Checking if event_type == 'transcript': {event_type} == 'transcript' → {event_type == 'transcript'}")
 
-        if event_type == "conversation-update":
-            print(f"✅ ENTERED CONVERSATION-UPDATE BRANCH")
+        if event_type == "transcript":
+            print(f"✅ ENTERED TRANSCRIPT BRANCH")
 
-            # Extract messages array
-            messages = call_data.get("messages", [])
-            print(f"📨 Messages array length: {len(messages)}")
+            # Extract transcript details
+            transcript_type = call_data.get("transcriptType")  # "partial" or "final"
+            role = call_data.get("role")  # "assistant" or "user"
+            transcript_text = call_data.get("transcript", "").strip()
 
-            # Get the last message
-            if messages and len(messages) > 0:
-                last_message = messages[-1]
-                role = last_message.get("role")
-                message_text = last_message.get("message", "").strip()
+            print(f"📝 Transcript type: '{transcript_type}' | Role: '{role}'")
+            print(f"📝 Text: '{transcript_text[:100]}...' (length: {len(transcript_text)})")
 
-                print(f"📨 Last message role: '{role}'")
-                print(f"📨 Last message text: '{message_text[:100]}...'")
+            # Only process FINAL transcripts from ASSISTANT
+            if transcript_type == "final" and role == "assistant" and transcript_text:
+                print(f"✅ FINAL ASSISTANT TRANSCRIPT DETECTED - Triggering RAG pipeline")
 
-                # Only process bot (AI) messages
-                if role == "bot" and message_text:
-                    print(f"✅ BOT MESSAGE DETECTED - Triggering RAG pipeline")
+                # Get assistant_id and find session
+                call = call_data.get("call", {})
+                assistant_id = call.get("assistantId")
 
-                    # Get assistant_id and find session
-                    call = call_data.get("call", {})
-                    assistant_id = call.get("assistantId")
+                print(f"🔍 Assistant ID: {assistant_id}")
 
-                    print(f"🔍 Assistant ID: {assistant_id}")
+                if assistant_id:
+                    # Find session by assistant_id
+                    session_result = supabase.table("sessions").select(
+                        "id, product_id"
+                    ).eq("assistant_id", assistant_id).execute()
 
-                    if assistant_id:
-                        # Find session by assistant_id
-                        session_result = supabase.table("sessions").select(
-                            "id, product_id"
-                        ).eq("assistant_id", assistant_id).execute()
+                    if session_result.data and len(session_result.data) > 0:
+                        session = session_result.data[0]
+                        session_id = session["id"]
+                        product_id = session.get("product_id")
 
-                        if session_result.data and len(session_result.data) > 0:
-                            session = session_result.data[0]
-                            session_id = session["id"]
-                            product_id = session.get("product_id")
+                        print(f"📋 Session Found: {session_id[:8]}... | Product: {product_id[:8] if product_id else 'None'}")
 
-                            print(f"📋 Session Found: {session_id[:8]}... | Product: {product_id[:8] if product_id else 'None'}")
+                        # Deduplication: Check if we've already processed this exact message
+                        import hashlib
+                        message_hash = hashlib.md5(transcript_text.encode()).hexdigest()
+
+                        if session_id not in processed_transcript_hashes:
+                            processed_transcript_hashes[session_id] = set()
+
+                        if message_hash in processed_transcript_hashes[session_id]:
+                            print(f"⏭️ Already processed this message (hash: {message_hash[:8]}...) - skipping duplicate")
+                        else:
+                            print(f"✅ New message (hash: {message_hash[:8]}...) - processing")
 
                             # Process RAG if product exists
                             if product_id:
@@ -767,7 +778,7 @@ async def vapi_webhook(
 
                                     # Step 1: Classify question
                                     classifier = RAGClassifier(settings.anthropic_api_key)
-                                    needs_rag = await classifier.classify(message_text, timeout=3.0)
+                                    needs_rag = await classifier.classify(transcript_text, timeout=3.0)
 
                                     if needs_rag:
                                         print(f"🔍 RAG Step 2: Querying ChromaDB...")
@@ -776,7 +787,7 @@ async def vapi_webhook(
                                         vector_service = VectorService()
                                         rag_results = await vector_service.query_product_knowledge(
                                             product_id=product_id,
-                                            query=message_text,
+                                            query=transcript_text,
                                             top_k=3
                                         )
 
@@ -788,7 +799,7 @@ async def vapi_webhook(
                                             synthesizer = RAGSynthesizer(settings.anthropic_api_key)
 
                                             synthesized_hint = await synthesizer.synthesize_hint(
-                                                question=message_text,
+                                                question=transcript_text,
                                                 context_chunks=rag_results,
                                                 max_chunks=3
                                             )
@@ -803,9 +814,9 @@ async def vapi_webhook(
                                             # Step 4: Save hint to database
                                             hint_data = {
                                                 "session_id": session_id,
-                                                "question": message_text,
-                                                "hint_text": synthesized_hint,  # Synthesized response
-                                                "hint_data": rag_results,  # Full raw results for reference
+                                                "question": transcript_text,
+                                                "hint_text": synthesized_hint,
+                                                "hint_data": rag_results,
                                                 "source_type": top_result.get("source_type"),
                                                 "source_name": top_result.get("source_name"),
                                                 "relevance_score": top_result.get("similarity"),
@@ -817,11 +828,15 @@ async def vapi_webhook(
                                             print(
                                                 f"✅ RAG Pipeline Complete! Hint saved:\n"
                                                 f"   Session: {session_id[:8]}...\n"
-                                                f"   Question: '{message_text[:60]}...'\n"
+                                                f"   Question: '{transcript_text[:60]}...'\n"
                                                 f"   Source: {top_result.get('source_name')}\n"
                                                 f"   Relevance: {top_result.get('similarity'):.3f}\n"
                                                 f"   Hint: '{synthesized_hint[:80]}...'"
                                             )
+
+                                            # Mark message as processed to prevent duplicates
+                                            processed_transcript_hashes[session_id].add(message_hash)
+                                            print(f"✓ Marked message as processed (hash: {message_hash[:8]}...)")
                                         else:
                                             print(f"⚠️ No relevant product knowledge found in ChromaDB")
                                     else:
@@ -833,12 +848,23 @@ async def vapi_webhook(
                                     logger.error(f"❌ RAG pipeline error: {e}", exc_info=True)
                             else:
                                 print(f"ℹ️ No product_id for session - skipping RAG")
-                        else:
-                            print(f"⚠️ No session found for assistant_id: {assistant_id}")
                     else:
-                        print(f"⚠️ No assistant_id in webhook payload")
+                        print(f"⚠️ No session found for assistant_id: {assistant_id}")
                 else:
-                    print(f"⏭️ SKIPPED: Last message is user message or empty")
+                    print(f"⚠️ No assistant_id in webhook payload")
+            else:
+                skip_reasons = []
+                if transcript_type != "final":
+                    skip_reasons.append(f"partial transcript (type={transcript_type})")
+                if role != "assistant":
+                    skip_reasons.append(f"user message (role={role})")
+                if not transcript_text:
+                    skip_reasons.append("empty text")
+                print(f"⏭️ SKIPPED: {', '.join(skip_reasons)}")
+
+        # Conversation updates (keep for logging, but RAG processing moved to transcript events)
+        elif event_type == "conversation-update":
+            print(f"✅ CONVERSATION-UPDATE: Contains full message history (not processing RAG here)")
 
         # TEMPORARILY DISABLED OLD CODE - Will re-enable after seeing message structure
         elif False and event_type == "OLD_transcript":
@@ -1002,6 +1028,11 @@ async def vapi_webhook(
                     ).execute()
 
                     logger.info(f"Session {session_id} updated successfully")
+
+                    # Clean up processed transcript hashes for this session (memory cleanup)
+                    if session_id in processed_transcript_hashes:
+                        del processed_transcript_hashes[session_id]
+                        print(f"🧹 Cleaned up deduplication cache for session {session_id[:8]}...")
 
                     # Trigger audio analysis in background if recording URL exists
                     if recording_url:

@@ -26,7 +26,7 @@ class RAGSynthesizer:
             anthropic_api_key: Anthropic API key for Claude access
         """
         self.client = Anthropic(api_key=anthropic_api_key)
-        self.model = "claude-3-5-haiku-20241022"  # Fast and cheap
+        self.model = "claude-haiku-4-5-20251001"  # Fast and cheap
 
     async def synthesize_hint(
         self,
@@ -141,10 +141,12 @@ RELEVANT PRODUCT KNOWLEDGE:
 {context}
 
 YOUR TASK:
-Write a concise, natural hint (2-3 sentences max) that helps the salesperson answer this question. The hint should:
+Write a concise, natural hint (2-3 bullet points max) that helps the salesperson answer this question. The hint should:
 - Be conversational and easy to understand quickly
 - Focus on the most relevant information
 - Include specific details (prices, features, etc.) if available
 - Sound like advice from a helpful colleague
+- DO NOT make up any information - only use the information provided in the context or general advice
+- Use bullet points for the hints and make sure it is brief and easy to understand.
 
 Write ONLY the hint text, nothing else:"""

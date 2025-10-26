@@ -26,7 +26,7 @@ class RAGClassifier:
             anthropic_api_key: Anthropic API key for Claude access
         """
         self.client = Anthropic(api_key=anthropic_api_key)
-        self.model = "claude-3-5-haiku-20241022"  # Fast and accurate
+        self.model = "claude-haiku-4-5-20251001"  # Fast and accurate
 
     async def classify(self, question: str, timeout: float = 3.0) -> bool:
         """
