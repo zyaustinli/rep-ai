@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     vapi_api_key: str = ""  # Private key for server-side SDK
     vapi_public_key: str = ""  # Public key for frontend
 
+    # Backend URL for webhooks
+    backend_url: str = "http://localhost:8000"  # Default for local development
+
     class Config:
         env_file = ".env"
         case_sensitive = False

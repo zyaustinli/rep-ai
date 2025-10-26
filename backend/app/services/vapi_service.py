@@ -1,6 +1,7 @@
 from vapi import Vapi
 from typing import Dict, Any, Optional
 import json
+import os
 
 
 class VapiService:
@@ -22,7 +23,8 @@ class VapiService:
         session_id: str,
         scenario: Dict[str, Any],
         difficulty: str,
-        call_type: str
+        call_type: str,
+        backend_url: Optional[str] = None
     ) -> str:
         """
         Create a Vapi assistant configured with the sales scenario
@@ -46,27 +48,48 @@ class VapiService:
         # Build first message
         first_message = self._build_first_message(persona, call_type)
 
+        # Build assistant configuration
+        assistant_config = {
+            "name": f"Session {session_id[:8]} - {persona_name}",
+            "first_message": first_message,
+            "model": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-4-5-20250929",
+                "temperature": 0.8,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": system_prompt
+                    }
+                ]
+            },
+            "voice": {
+                "provider": "azure",
+                "voiceId": "andrew"
+            },
+            "artifact_plan": {
+                "recording_enabled": True,
+                "recording_format": "mp3",
+                "transcript_plan": {
+                    "enabled": True,
+                    "assistant_name": persona_name,
+                    "user_name": "Salesperson"
+                }
+            }
+        }
+
+        # Add server URL for webhooks if provided
+        # Note: Vapi requires HTTPS or WSS protocol, not HTTP
+        if backend_url and (backend_url.startswith("https://") or backend_url.startswith("wss://")):
+            assistant_config["server"] = {
+                "url": f"{backend_url}/api/sessions/vapi/webhook",
+            }
+        elif backend_url:
+            print(f"Warning: Skipping webhook configuration - Vapi requires HTTPS/WSS, got: {backend_url}")
+
         # Create assistant via Vapi API
         try:
-            assistant = self.client.assistants.create(
-                name=f"Session {session_id[:8]} - {persona_name}",
-                first_message=first_message,
-                model={
-                    "provider": "anthropic",
-                    "model": "claude-sonnet-4-5-20250929",
-                    "temperature": 0.8,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": system_prompt
-                        }
-                    ]
-                },
-                voice={
-                    "provider": "azure",
-                    "voiceId": "andrew"
-                }
-            )
+            assistant = self.client.assistants.create(**assistant_config)
 
             return assistant.id
 

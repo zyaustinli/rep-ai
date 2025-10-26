@@ -84,6 +84,7 @@ class Session(BaseModel):
     # Vapi integration fields
     assistant_id: Optional[str] = None  # Vapi assistant ID for this session
     vapi_call_id: Optional[str] = None  # Vapi call ID when call is active
+    recording_url: Optional[str] = None  # URL to call recording from Vapi
 
     class Config:
         from_attributes = True

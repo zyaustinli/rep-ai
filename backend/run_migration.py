@@ -55,7 +55,7 @@ if __name__ == "__main__":
     print(f"📍 Supabase URL: {SUPABASE_URL}")
 
     # Run the migration
-    success = run_migration("001_add_vapi_fields_to_sessions.sql")
+    success = run_migration("002_add_recording_url_to_sessions.sql")
 
     if not success:
         print("\n" + "="*60)
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         print("\nPlease execute the following SQL in Supabase SQL Editor:")
         print("(Dashboard → SQL Editor → New Query)\n")
 
-        migration_path = Path(__file__).parent.parent / "docs" / "migrations" / "001_add_vapi_fields_to_sessions.sql"
+        migration_path = Path(__file__).parent.parent / "docs" / "migrations" / "002_add_recording_url_to_sessions.sql"
         with open(migration_path, 'r') as f:
             print(f.read())
 

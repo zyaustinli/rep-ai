@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, Request
 from typing import List, Optional
 from app.schemas.session import (
     Session,
@@ -14,8 +14,10 @@ from app.services.scenario_generator import ScenarioGenerator
 from app.services.conversation import ConversationService
 from app.services.vapi_service import VapiService
 from app.config import settings
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/generate-scenario")
@@ -92,7 +94,8 @@ async def create_session(
             session_id=session_id,
             scenario=session.scenario,
             difficulty=session.difficulty.value if hasattr(session.difficulty, 'value') else session.difficulty,
-            call_type=session.call_type.value if hasattr(session.call_type, 'value') else session.call_type
+            call_type=session.call_type.value if hasattr(session.call_type, 'value') else session.call_type,
+            backend_url=settings.backend_url
         )
 
         # Update session with assistant_id
@@ -210,6 +213,46 @@ async def get_session_transcript(
     return result.data[0]
 
 
+@router.get("/{session_id}/recording")
+async def get_session_recording(
+    session_id: str,
+    current_user = Depends(get_current_user),
+    supabase = Depends(get_supabase)
+):
+    """
+    Get recording URL for a session
+    """
+    # Verify session belongs to user and get recording URL
+    result = supabase.table("sessions").select("id, recording_url, status").eq(
+        "id", session_id
+    ).eq("user_id", current_user.id).execute()
+
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session_data = result.data[0]
+    recording_url = session_data.get("recording_url")
+
+    if not recording_url:
+        # Check if session is completed
+        if session_data.get("status") == "completed":
+            raise HTTPException(
+                status_code=404,
+                detail="Recording not available for this session. It may still be processing."
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="Recording not available. Session has not been completed yet."
+            )
+
+    return {
+        "session_id": session_id,
+        "recording_url": recording_url,
+        "format": "mp3"
+    }
+
+
 @router.post("/{session_id}/analyze")
 async def analyze_session(
     session_id: str,
@@ -323,6 +366,84 @@ async def save_transcript(
         "entries_count": len(transcript_request.entries),
         "duration_seconds": transcript_request.duration_seconds
     }
+
+
+@router.post("/vapi/webhook")
+async def vapi_webhook(
+    request: Request,
+    supabase = Depends(get_supabase)
+):
+    """
+    Webhook endpoint for Vapi events
+    Handles call-end events to capture recording URLs and other artifacts
+    """
+    try:
+        # Parse webhook payload
+        payload = await request.json()
+
+        # Log full payload for debugging
+        logger.info(f"Received Vapi webhook - Full payload: {payload}")
+
+        event_type = payload.get("message", {}).get("type")
+        call_data = payload.get("message", {})
+
+        logger.info(f"Received Vapi webhook event type: {event_type}")
+
+        # Handle different event types
+        if event_type == "end-of-call-report":
+            # Extract call information
+            call = call_data.get("call", {})
+            assistant_id = call.get("assistantId")
+            vapi_call_id = call.get("id")
+
+            # Extract recording URL - it's at the top level in message, not in call.artifact
+            recording_url = call_data.get("recordingUrl")
+            stereo_recording_url = call_data.get("stereoRecordingUrl")
+
+            # Also get artifact for transcript
+            artifact = call_data.get("artifact", {})
+            transcript = artifact.get("transcript")
+
+            logger.info(f"Call ended - Assistant ID: {assistant_id}, Call ID: {vapi_call_id}")
+            logger.info(f"Recording URL: {recording_url}")
+            logger.info(f"Stereo Recording URL: {stereo_recording_url}")
+            logger.info(f"Transcript available: {bool(transcript)}")
+
+            if assistant_id:
+                # Find session by assistant_id
+                session_result = supabase.table("sessions").select("id").eq(
+                    "assistant_id", assistant_id
+                ).execute()
+
+                if session_result.data and len(session_result.data) > 0:
+                    session_id = session_result.data[0]["id"]
+
+                    # Update session with recording URL and call completion
+                    update_data = {
+                        "status": "completed",
+                        "vapi_call_id": vapi_call_id,
+                        "completed_at": "now()"
+                    }
+
+                    if recording_url:
+                        update_data["recording_url"] = recording_url
+                        logger.info(f"Updating session {session_id} with recording URL: {recording_url}")
+
+                    supabase.table("sessions").update(update_data).eq(
+                        "id", session_id
+                    ).execute()
+
+                    logger.info(f"Session {session_id} updated successfully")
+                else:
+                    logger.warning(f"No session found for assistant_id: {assistant_id}")
+
+        # Return 200 OK to acknowledge receipt
+        return {"status": "success"}
+
+    except Exception as e:
+        logger.error(f"Error processing Vapi webhook: {str(e)}")
+        # Still return 200 to avoid webhook retries
+        return {"status": "error", "message": str(e)}
 
 
 @router.websocket("/{session_id}/conversation")
