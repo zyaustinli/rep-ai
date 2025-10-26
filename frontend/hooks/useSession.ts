@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { api, endpoints } from "@/lib/api";
+import api from "@/lib/api";
 import { Session } from "@/types";
 
 export function useSession() {
@@ -11,7 +11,8 @@ export function useSession() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<Session>(endpoints.sessions.get(sessionId));
+      const response = await api.get(`/api/sessions/${sessionId}`);
+      const data = response.data;
       setSession(data);
       return data;
     } catch (err: any) {
@@ -27,10 +28,11 @@ export function useSession() {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.post<Session>(endpoints.sessions.create, {
+        const response = await api.post('/api/sessions', {
           scenarioId,
           productId,
         });
+        const data = response.data;
         setSession(data);
         return data;
       } catch (err: any) {
@@ -47,7 +49,7 @@ export function useSession() {
     setLoading(true);
     setError(null);
     try {
-      await api.delete(endpoints.sessions.delete(sessionId));
+      await api.delete(`/api/sessions/${sessionId}`);
       if (session?.id === sessionId) {
         setSession(null);
       }
@@ -63,8 +65,8 @@ export function useSession() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.post(endpoints.sessions.analyze(sessionId));
-      return data;
+      const response = await api.post(`/api/sessions/${sessionId}/analyze`);
+      return response.data;
     } catch (err: any) {
       setError(err.message || "Failed to analyze session");
       throw err;
@@ -77,8 +79,8 @@ export function useSession() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get(endpoints.sessions.getAnalysis(sessionId));
-      return data;
+      const response = await api.get(`/api/sessions/${sessionId}/analysis`);
+      return response.data;
     } catch (err: any) {
       setError(err.message || "Failed to get analysis");
       throw err;

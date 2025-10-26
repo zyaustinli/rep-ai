@@ -65,6 +65,11 @@ class RAGClassifier:
     async def _classify_internal(self, question: str) -> bool:
         """Internal classification logic using Claude"""
 
+        import time
+        start_time = time.time()
+
+        logger.info(f"🤔 RAG Classifier: Analyzing question: '{question[:80]}...'")
+
         prompt = self._build_classification_prompt(question)
 
         # Call Claude Haiku (fast, cheap, accurate)
@@ -86,7 +91,22 @@ class RAGClassifier:
         # Parse result
         needs_rag = "PRODUCT" in response_text
 
-        logger.info(f"Classifier: '{question[:50]}...' → {response_text} → RAG={needs_rag}")
+        # Calculate classification time
+        classification_time = time.time() - start_time
+
+        # Log result
+        if needs_rag:
+            logger.info(
+                f"✅ RAG Classifier: PRODUCT question detected → Triggering RAG pipeline "
+                f"(took {classification_time:.2f}s)"
+            )
+        else:
+            logger.info(
+                f"💬 RAG Classifier: CONVERSATIONAL question → Skipping RAG "
+                f"(took {classification_time:.2f}s)"
+            )
+
+        logger.debug(f"   Claude response: '{response_text}'")
 
         return needs_rag
 

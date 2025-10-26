@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api, endpoints } from "@/lib/api";
+import api from "@/lib/api";
 
 export interface User {
   id: string;
@@ -44,8 +44,8 @@ export const useUserStore = create<UserState>((set, get) => ({
   fetchUserStats: async () => {
     set({ loading: true, error: null });
     try {
-      const stats = await api.get<UserStats>(endpoints.user.stats);
-      set({ stats, loading: false });
+      const response = await api.get('/api/users/me/stats');
+      set({ stats: response.data, loading: false });
     } catch (error: any) {
       set({
         error: error.message || "Failed to fetch user stats",
@@ -57,8 +57,8 @@ export const useUserStore = create<UserState>((set, get) => ({
   updateProfile: async (data) => {
     set({ loading: true, error: null });
     try {
-      const updatedUser = await api.patch<User>(endpoints.user.me, data);
-      set({ user: updatedUser, loading: false });
+      const response = await api.patch('/api/users/me', data);
+      set({ user: response.data, loading: false });
     } catch (error: any) {
       set({
         error: error.message || "Failed to update profile",

@@ -191,6 +191,22 @@ class VectorService:
             ]
         """
         try:
+            # Log query details
+            collection_count = self.collection.count()
+            logger.info(
+                f"🔍 ChromaDB Query: '{query[:80]}...' | "
+                f"Product: {product_id[:8]}... | "
+                f"Collection size: {collection_count} vectors | "
+                f"Top-k: {top_k}"
+            )
+
+            # Warn if collection is empty
+            if collection_count == 0:
+                logger.warning(
+                    f"⚠️ ChromaDB collection is EMPTY - no embedded documents available"
+                )
+                return []
+
             # Query ChromaDB with product_id filter
             results = self.collection.query(
                 query_texts=[query],
@@ -202,9 +218,12 @@ class VectorService:
             formatted_results = []
 
             if results['ids'] and len(results['ids'][0]) > 0:
+                logger.info(f"📊 ChromaDB returned {len(results['ids'][0])} result(s)")
+
                 for i in range(len(results['ids'][0])):
                     metadata = results['metadatas'][0][i]
                     distance = results['distances'][0][i]
+                    similarity = 1 - distance
                     text = results['documents'][0][i]
 
                     # Determine source name
@@ -216,21 +235,29 @@ class VectorService:
                     formatted_results.append({
                         "text": text,
                         "distance": distance,
-                        "similarity": 1 - distance,  # Convert distance to similarity score
+                        "similarity": similarity,
                         "source_type": metadata['source_type'],
                         "source_name": source_name,
                         "chunk_index": f"{metadata['chunk_index']}/{metadata['chunk_total']}",
                         "metadata": metadata
                     })
 
-            logger.info(
-                f"Query for product {product_id} returned {len(formatted_results)} results"
-            )
+                    # Log each result
+                    logger.info(
+                        f"  Result #{i+1}: {source_name} | "
+                        f"Similarity: {similarity:.3f} | "
+                        f"Text preview: '{text[:60]}...'"
+                    )
+            else:
+                logger.warning(
+                    f"⚠️ No results found for product {product_id[:8]}... - "
+                    f"product may not have embedded documents in ChromaDB"
+                )
 
             return formatted_results
 
         except Exception as e:
-            logger.error(f"Query failed for product {product_id}: {str(e)}")
+            logger.error(f"❌ ChromaDB Query failed for product {product_id}: {str(e)}", exc_info=True)
             return []
 
     def delete_product_vectors(self, product_id: str) -> int:

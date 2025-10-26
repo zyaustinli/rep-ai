@@ -22,6 +22,12 @@ import asyncio
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
+# MODULE LOAD CONFIRMATION
+logger.warning("🔥🔥🔥 SESSIONS.PY MODULE LOADED WITH NEW DEBUG CODE - v3 🔥🔥🔥")
+print("=" * 80)
+print("🔥🔥🔥 SESSIONS.PY MODULE LOADED WITH NEW DEBUG CODE - v3 🔥🔥🔥")
+print("=" * 80)
+
 
 async def trigger_audio_analysis_background(session_id: str, recording_url: str):
     """
@@ -663,6 +669,15 @@ async def get_session_hints(
     return {"hints": hints}
 
 
+@router.get("/test-logging")
+async def test_logging():
+    """Test endpoint to verify logging is working"""
+    logger.info("=" * 80)
+    logger.info("🧪 TEST ENDPOINT CALLED - LOGGING WORKS!")
+    logger.info("=" * 80)
+    return {"message": "If you see emoji logs above, logging is working!", "version": "v2_with_debug"}
+
+
 @router.post("/vapi/webhook")
 async def vapi_webhook(
     request: Request,
@@ -673,28 +688,168 @@ async def vapi_webhook(
     Webhook endpoint for Vapi events
     Handles call-end events to capture recording URLs and trigger audio analysis
     """
+    # USE PRINT TO BYPASS LOGGING CONFIG
+    print("\n" + "=" * 80)
+    print("🔔🔔🔔 WEBHOOK RECEIVED - ENTRY POINT 🔔🔔🔔")
+    print("=" * 80 + "\n")
+
+    logger.info("=" * 80)
+    logger.info("🔔 WEBHOOK RECEIVED - ENTRY POINT")
+    logger.info("=" * 80)
+
     try:
         # Parse webhook payload
         payload = await request.json()
 
         # Log full payload for debugging
-        logger.info(f"Received Vapi webhook - Full payload: {payload}")
+        print(f"📦 Raw Payload Keys: {list(payload.keys())}")
 
         event_type = payload.get("message", {}).get("type")
         call_data = payload.get("message", {})
 
-        logger.info(f"Received Vapi webhook event type: {event_type}")
+        print(f"🎯 Extracted event_type: '{event_type}'")
+        print(f"🎯 call_data keys: {list(call_data.keys()) if call_data else 'None'}")
+
+        if event_type:
+            print(f"✅ Event type is truthy")
+        else:
+            print(f"⚠️ Event type is falsy or None!")
 
         # Handle different event types
+        print(f"🔀 Checking event type branches...")
 
         # RAG Pipeline: Process AI questions for product knowledge hints
-        if event_type == "transcript":
-            role = call_data.get("role")
-            transcript_text = call_data.get("transcript", "").strip()
+        print(f"🔍 Checking if event_type == 'conversation-update': {event_type} == 'conversation-update' → {event_type == 'conversation-update'}")
 
-            # Only process assistant (AI) messages
+        if event_type == "conversation-update":
+            print(f"✅ ENTERED CONVERSATION-UPDATE BRANCH")
+
+            # Extract messages array
+            messages = call_data.get("messages", [])
+            print(f"📨 Messages array length: {len(messages)}")
+
+            # Get the last message
+            if messages and len(messages) > 0:
+                last_message = messages[-1]
+                role = last_message.get("role")
+                message_text = last_message.get("message", "").strip()
+
+                print(f"📨 Last message role: '{role}'")
+                print(f"📨 Last message text: '{message_text[:100]}...'")
+
+                # Only process bot (AI) messages
+                if role == "bot" and message_text:
+                    print(f"✅ BOT MESSAGE DETECTED - Triggering RAG pipeline")
+
+                    # Get assistant_id and find session
+                    call = call_data.get("call", {})
+                    assistant_id = call.get("assistantId")
+
+                    print(f"🔍 Assistant ID: {assistant_id}")
+
+                    if assistant_id:
+                        # Find session by assistant_id
+                        session_result = supabase.table("sessions").select(
+                            "id, product_id"
+                        ).eq("assistant_id", assistant_id).execute()
+
+                        if session_result.data and len(session_result.data) > 0:
+                            session = session_result.data[0]
+                            session_id = session["id"]
+                            product_id = session.get("product_id")
+
+                            print(f"📋 Session Found: {session_id[:8]}... | Product: {product_id[:8] if product_id else 'None'}")
+
+                            # Process RAG if product exists
+                            if product_id:
+                                try:
+                                    print(f"🔍 RAG Step 1: Classifying question...")
+
+                                    # Step 1: Classify question
+                                    classifier = RAGClassifier(settings.anthropic_api_key)
+                                    needs_rag = await classifier.classify(message_text, timeout=3.0)
+
+                                    if needs_rag:
+                                        print(f"🔍 RAG Step 2: Querying ChromaDB...")
+
+                                        # Step 2: Query ChromaDB
+                                        vector_service = VectorService()
+                                        rag_results = await vector_service.query_product_knowledge(
+                                            product_id=product_id,
+                                            query=message_text,
+                                            top_k=3
+                                        )
+
+                                        if rag_results and len(rag_results) > 0:
+                                            print(f"🔍 RAG Step 3: Synthesizing natural response...")
+
+                                            # Step 3: Synthesize natural hint using LLM
+                                            from app.services.rag_synthesizer import RAGSynthesizer
+                                            synthesizer = RAGSynthesizer(settings.anthropic_api_key)
+
+                                            synthesized_hint = await synthesizer.synthesize_hint(
+                                                question=message_text,
+                                                context_chunks=rag_results,
+                                                max_chunks=3
+                                            )
+
+                                            # Fallback to raw chunk if synthesis fails
+                                            if not synthesized_hint:
+                                                print(f"⚠️ Synthesis failed - falling back to raw chunk text")
+                                                synthesized_hint = rag_results[0]["text"]
+
+                                            top_result = rag_results[0]
+
+                                            # Step 4: Save hint to database
+                                            hint_data = {
+                                                "session_id": session_id,
+                                                "question": message_text,
+                                                "hint_text": synthesized_hint,  # Synthesized response
+                                                "hint_data": rag_results,  # Full raw results for reference
+                                                "source_type": top_result.get("source_type"),
+                                                "source_name": top_result.get("source_name"),
+                                                "relevance_score": top_result.get("similarity"),
+                                                "delivered": False
+                                            }
+
+                                            supabase.table("session_hints").insert(hint_data).execute()
+
+                                            print(
+                                                f"✅ RAG Pipeline Complete! Hint saved:\n"
+                                                f"   Session: {session_id[:8]}...\n"
+                                                f"   Question: '{message_text[:60]}...'\n"
+                                                f"   Source: {top_result.get('source_name')}\n"
+                                                f"   Relevance: {top_result.get('similarity'):.3f}\n"
+                                                f"   Hint: '{synthesized_hint[:80]}...'"
+                                            )
+                                        else:
+                                            print(f"⚠️ No relevant product knowledge found in ChromaDB")
+                                    else:
+                                        print(f"💬 Question is conversational - RAG pipeline skipped")
+
+                                except Exception as e:
+                                    # Log error but don't break webhook
+                                    print(f"❌ RAG pipeline error: {e}")
+                                    logger.error(f"❌ RAG pipeline error: {e}", exc_info=True)
+                            else:
+                                print(f"ℹ️ No product_id for session - skipping RAG")
+                        else:
+                            print(f"⚠️ No session found for assistant_id: {assistant_id}")
+                    else:
+                        print(f"⚠️ No assistant_id in webhook payload")
+                else:
+                    print(f"⏭️ SKIPPED: Last message is user message or empty")
+
+        # TEMPORARILY DISABLED OLD CODE - Will re-enable after seeing message structure
+        elif False and event_type == "OLD_transcript":
+            role = None
+            transcript_text = ""
             if role == "assistant" and transcript_text:
-                logger.info(f"Processing AI question for RAG: '{transcript_text[:100]}...'")
+                print(f"✅ ENTERED AI MESSAGE PROCESSING BRANCH")
+                logger.info(
+                    f"🎤 AI Transcript Received: '{transcript_text[:100]}...' "
+                    f"(length: {len(transcript_text)} chars)"
+                )
 
                 # Get assistant_id and find session
                 call = call_data.get("call", {})
@@ -711,15 +866,22 @@ async def vapi_webhook(
                         session_id = session["id"]
                         product_id = session.get("product_id")
 
+                        logger.info(
+                            f"📋 Session Found: {session_id[:8]}... | "
+                            f"Product: {product_id[:8] if product_id else 'None'}"
+                        )
+
                         # Process RAG if product exists (always run, regardless of user preference)
                         if product_id:
                             try:
+                                logger.info(f"🔍 RAG Step 1: Classifying question...")
+
                                 # Step 1: Classify question
                                 classifier = RAGClassifier(settings.anthropic_api_key)
                                 needs_rag = await classifier.classify(transcript_text, timeout=3.0)
 
                                 if needs_rag:
-                                    logger.info(f"Question needs RAG - querying product knowledge")
+                                    logger.info(f"🔍 RAG Step 2: Querying ChromaDB...")
 
                                     # Step 2: Query ChromaDB
                                     vector_service = VectorService()
@@ -730,14 +892,33 @@ async def vapi_webhook(
                                     )
 
                                     if rag_results and len(rag_results) > 0:
+                                        logger.info(f"🔍 RAG Step 3: Synthesizing natural response...")
+
+                                        # Step 3: Synthesize natural hint using LLM
+                                        from app.services.rag_synthesizer import RAGSynthesizer
+                                        synthesizer = RAGSynthesizer(settings.anthropic_api_key)
+
+                                        synthesized_hint = await synthesizer.synthesize_hint(
+                                            question=transcript_text,
+                                            context_chunks=rag_results,
+                                            max_chunks=3
+                                        )
+
+                                        # Fallback to raw chunk if synthesis fails
+                                        if not synthesized_hint:
+                                            logger.warning(
+                                                "⚠️ Synthesis failed - falling back to raw chunk text"
+                                            )
+                                            synthesized_hint = rag_results[0]["text"]
+
                                         top_result = rag_results[0]
 
-                                        # Step 3: Save hint to database
+                                        # Step 4: Save hint to database
                                         hint_data = {
                                             "session_id": session_id,
                                             "question": transcript_text,
-                                            "hint_text": top_result["text"],
-                                            "hint_data": rag_results,  # Full results
+                                            "hint_text": synthesized_hint,  # Synthesized response
+                                            "hint_data": rag_results,  # Full raw results for reference
                                             "source_type": top_result.get("source_type"),
                                             "source_name": top_result.get("source_name"),
                                             "relevance_score": top_result.get("similarity"),
@@ -747,23 +928,37 @@ async def vapi_webhook(
                                         supabase.table("session_hints").insert(hint_data).execute()
 
                                         logger.info(
-                                            f"✅ Hint saved for session {session_id}: "
-                                            f"'{transcript_text[:50]}...' → "
-                                            f"{top_result.get('source_name')} "
-                                            f"(score: {top_result.get('similarity'):.2f})"
+                                            f"✅ RAG Pipeline Complete! Hint saved:\n"
+                                            f"   Session: {session_id[:8]}...\n"
+                                            f"   Question: '{transcript_text[:60]}...'\n"
+                                            f"   Source: {top_result.get('source_name')}\n"
+                                            f"   Relevance: {top_result.get('similarity'):.3f}\n"
+                                            f"   Hint: '{synthesized_hint[:80]}...'"
                                         )
                                     else:
-                                        logger.info(f"No relevant product knowledge found for: '{transcript_text[:50]}...'")
+                                        logger.warning(
+                                            f"⚠️ No relevant product knowledge found in ChromaDB for: "
+                                            f"'{transcript_text[:50]}...'"
+                                        )
                                 else:
-                                    logger.info(f"Question classified as conversational - no RAG needed")
+                                    logger.info(f"💬 Question is conversational - RAG pipeline skipped")
 
                             except Exception as e:
                                 # Log error but don't break webhook
-                                logger.error(f"RAG pipeline error: {e}", exc_info=True)
+                                logger.error(
+                                    f"❌ RAG pipeline error for session {session_id[:8]}...: {e}",
+                                    exc_info=True
+                                )
                         else:
-                            logger.debug(f"No product_id for session {session_id} - skipping RAG")
+                            logger.debug(
+                                f"ℹ️ No product_id for session {session_id[:8]}... - skipping RAG"
+                            )
+
+        print(f"🔍 Checking if event_type == 'end-of-call-report': {event_type} == 'end-of-call-report' → {event_type == 'end-of-call-report'}")
 
         if event_type == "end-of-call-report":
+            print(f"✅ ENTERED END-OF-CALL-REPORT BRANCH")
+            logger.info(f"✅ ENTERED END-OF-CALL-REPORT BRANCH")
             # Extract call information
             call = call_data.get("call", {})
             assistant_id = call.get("assistantId")
@@ -820,12 +1015,26 @@ async def vapi_webhook(
                         logger.warning(f"No recording URL available for session {session_id}. Skipping audio analysis.")
                 else:
                     logger.warning(f"No session found for assistant_id: {assistant_id}")
+        else:
+            logger.info(f"⏭️ NOT END-OF-CALL-REPORT EVENT")
 
         # Return 200 OK to acknowledge receipt
+        print("\n" + "=" * 80)
+        print("✅ WEBHOOK HANDLER COMPLETE - Returning 200 OK")
+        print("=" * 80 + "\n")
+        logger.info("=" * 80)
+        logger.info("✅ WEBHOOK HANDLER COMPLETE - Returning 200 OK")
+        logger.info("=" * 80)
         return {"status": "success"}
 
     except Exception as e:
-        logger.error(f"Error processing Vapi webhook: {str(e)}")
+        print("\n" + "=" * 80)
+        print(f"❌ ERROR IN WEBHOOK HANDLER: {str(e)}")
+        print("=" * 80 + "\n")
+        logger.error("=" * 80)
+        logger.error(f"❌ ERROR IN WEBHOOK HANDLER: {str(e)}")
+        logger.error("=" * 80)
+        logger.error(f"Full error:", exc_info=True)
         # Still return 200 to avoid webhook retries
         return {"status": "error", "message": str(e)}
 

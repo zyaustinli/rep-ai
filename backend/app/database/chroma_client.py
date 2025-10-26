@@ -76,7 +76,25 @@ def get_product_collection(reset: bool = False):
         }
     )
 
-    logger.info(f"ChromaDB collection '{collection_name}' ready (count: {_collection.count()})")
+    # Get collection stats
+    vector_count = _collection.count()
+
+    # Get embedding model info
+    embedding_model = "all-MiniLM-L6-v2"  # ChromaDB default
+
+    logger.info(
+        f"📚 ChromaDB Collection Ready:\n"
+        f"   Name: {collection_name}\n"
+        f"   Vectors: {vector_count}\n"
+        f"   Embedding Model: {embedding_model}\n"
+        f"   Similarity Metric: cosine"
+    )
+
+    if vector_count == 0:
+        logger.warning(
+            f"⚠️ ChromaDB collection is EMPTY - no product documents embedded yet. "
+            f"Upload documents via /api/products/{{product_id}}/documents endpoint."
+        )
 
     return _collection
 

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { api, endpoints } from "@/lib/api";
+import api from "@/lib/api";
 
 export interface AnalyticsOverview {
   totalSessions: number;
@@ -60,10 +60,8 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   fetchOverview: async () => {
     set({ loading: true, error: null });
     try {
-      const overview = await api.get<AnalyticsOverview>(
-        endpoints.analytics.overview
-      );
-      set({ overview, loading: false });
+      const response = await api.get('/api/analytics/overview');
+      set({ overview: response.data, loading: false });
     } catch (error: any) {
       set({
         error: error.message || "Failed to fetch overview",
@@ -75,10 +73,8 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   fetchProgress: async (period = "30d") => {
     set({ loading: true, error: null });
     try {
-      const data = await api.get<{ dataPoints: ProgressDataPoint[] }>(
-        `${endpoints.analytics.progress}?period=${period}`
-      );
-      set({ progress: data.dataPoints, loading: false });
+      const response = await api.get(`/api/analytics/progress?period=${period}`);
+      set({ progress: response.data.dataPoints, loading: false });
     } catch (error: any) {
       set({
         error: error.message || "Failed to fetch progress",
@@ -90,10 +86,8 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   fetchSkillBreakdown: async () => {
     set({ loading: true, error: null });
     try {
-      const skillBreakdown = await api.get<SkillBreakdown>(
-        endpoints.analytics.skills
-      );
-      set({ skillBreakdown, loading: false });
+      const response = await api.get('/api/analytics/skills');
+      set({ skillBreakdown: response.data, loading: false });
     } catch (error: any) {
       set({
         error: error.message || "Failed to fetch skill breakdown",
@@ -105,10 +99,8 @@ export const useAnalyticsStore = create<AnalyticsState>((set, get) => ({
   fetchRecommendations: async () => {
     set({ loading: true, error: null });
     try {
-      const data = await api.get<{ recommendations: Recommendation[] }>(
-        endpoints.analytics.recommendations
-      );
-      set({ recommendations: data.recommendations, loading: false });
+      const response = await api.get('/api/analytics/recommendations');
+      set({ recommendations: response.data.recommendations, loading: false });
     } catch (error: any) {
       set({
         error: error.message || "Failed to fetch recommendations",

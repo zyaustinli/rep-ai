@@ -21,6 +21,12 @@ api.interceptors.request.use(async (config) => {
 });
 
 // API functions
+// WebSocket helper
+export const createWebSocket = (sessionId: string): WebSocket => {
+  const wsUrl = API_URL.replace('http', 'ws');
+  return new WebSocket(`${wsUrl}/api/sessions/${sessionId}/conversation`);
+};
+
 export const apiClient = {
   // Products
   products: {
