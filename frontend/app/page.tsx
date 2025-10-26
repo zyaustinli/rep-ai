@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function HomePage() {
   return (
@@ -6,7 +7,16 @@ export default function HomePage() {
       {/* Header */}
       <nav className="bg-white border-b border-slate-200">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-slate-900">Rep</h1>
+          <Link href="/">
+            <Image
+              src="/rep-logo.png"
+              alt="Rep Logo"
+              width={90}
+              height={36}
+              className="h-9 w-auto cursor-pointer"
+              priority
+            />
+          </Link>
           <div className="flex gap-3">
             <Link
               href="/login"

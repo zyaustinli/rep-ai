@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 
 interface AnalyticsOverview {
   total_sessions: number;
@@ -135,7 +136,16 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-slate-900">Rep</h1>
+          <Link href="/dashboard">
+            <Image
+              src="/rep-logo.png"
+              alt="Rep Logo"
+              width={90}
+              height={36}
+              className="h-9 w-auto cursor-pointer"
+              priority
+            />
+          </Link>
           <div className="flex items-center gap-4">
             <span className="text-slate-600 text-sm">{user?.email || 'guest@example.com'}</span>
             <button

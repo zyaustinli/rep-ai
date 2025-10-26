@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +19,15 @@ export function Navigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
-            <Link href="/dashboard" className="text-xl font-bold text-blue-600">
-              Rep
+            <Link href="/dashboard" className="flex items-center">
+              <Image
+                src="/rep-logo.png"
+                alt="Rep Logo"
+                width={90}
+                height={36}
+                className="h-9 w-auto"
+                priority
+              />
             </Link>
             <div className="ml-10 flex items-center space-x-4">
               {navItems.map((item) => (
