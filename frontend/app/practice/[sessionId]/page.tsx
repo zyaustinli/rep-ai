@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { useVapi } from '@/hooks/useVapi';
@@ -25,7 +26,7 @@ export default function PracticePage({ params }: { params: { sessionId: string }
 
   // Hints state and hook
   const [hintsVisible, setHintsVisible] = useState(true);
-  const { hints } = useHints(params.sessionId, vapi.isConnected);
+  const { hints } = useHints(params.sessionId, vapi.isConnected, vapi.isSpeaking);
 
   // Fetch session data on mount
   useEffect(() => {
@@ -180,8 +181,15 @@ export default function PracticePage({ params }: { params: { sessionId: string }
       {/* Header */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-2xl font-bold text-slate-900">
-            Rep
+          <Link href="/dashboard">
+            <Image
+              src="/rep-logo.png"
+              alt="Rep Logo"
+              width={90}
+              height={36}
+              className="h-9 w-auto cursor-pointer"
+              priority
+            />
           </Link>
           <div className="flex items-center gap-4">
             <div className="text-slate-600 text-sm">Session ID: {params.sessionId.slice(0, 8)}...</div>

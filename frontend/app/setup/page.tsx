@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { Product } from '@/types';
@@ -153,8 +154,15 @@ export default function SetupPage() {
       {/* Header */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 backdrop-blur-sm bg-white/95">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/dashboard" className="text-2xl font-bold text-slate-900">
-            Rep
+          <Link href="/dashboard">
+            <Image
+              src="/rep-logo.png"
+              alt="Rep Logo"
+              width={90}
+              height={36}
+              className="h-9 w-auto cursor-pointer"
+              priority
+            />
           </Link>
           <Link href="/dashboard" className="text-slate-600 hover:text-slate-900 transition font-medium text-sm inline-flex items-center gap-2">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

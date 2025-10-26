@@ -98,9 +98,9 @@
    Click "Environment Variables" and add:
 
    ```
-   NEXT_PUBLIC_SUPABASE_URL=https://tmysbwpzpjbcyjwhxojy.supabase.co/
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRteXNid3B6cGpiY3lqd2h4b2p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEzNDY2MjQsImV4cCI6MjA3NjkyMjYyNH0.DDGvXKOyyAU42uDCsI5NeTzNu8Pf8USwQ5XLvjOsyUg
-   NEXT_PUBLIC_VAPI_PUBLIC_KEY=e5ef62e6-0623-40a9-94e4-48ed1367655f
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+   NEXT_PUBLIC_VAPI_PUBLIC_KEY=your_vapi_public_key_here
    NEXT_PUBLIC_API_URL=https://placeholder-backend.com
    ```
 
