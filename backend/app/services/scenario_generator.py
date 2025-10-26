@@ -1,12 +1,19 @@
 import anthropic
 import json
+import os 
+import asyncio
 from typing import Dict, Any
+
 
 
 class ScenarioGenerator:
     def __init__(self, api_key: str):
+        api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise ValueError("ANTHROPIC_API_KEY is required (env var or constructor).")
         self.client = anthropic.Anthropic(api_key=api_key)
-
+        self.max_web_search_uses = 4
+        
     async def generate_scenario(
         self,
         product_data: Dict[str, Any],
@@ -14,20 +21,29 @@ class ScenarioGenerator:
         preferences: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Generate a comprehensive scenario using Claude API
+        Generate a comprehensive scenario using Claude API with web search
         """
         prompt = self._build_scenario_prompt(product_data, persona_data, preferences)
 
-        message = self.client.messages.create(
+        message = await asyncio.to_thread(
+            self.client.messages.create,
             model="claude-sonnet-4-5",
             max_tokens=4000,
             messages=[
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            tools=[{
+                "type": "web_search_20250305",
+                "name": "web_search",
+                "max_uses": self.max_web_search_uses
+            }]
         )
 
-        # Parse the response
-        scenario_text = message.content[0].text
+        # Parse the response - extract text blocks only (skip web search tool blocks)
+        scenario_text = ""
+        for block in message.content:
+            if hasattr(block, 'text'):
+                scenario_text += block.text
 
         # Try to extract JSON from the response
         try:
@@ -53,7 +69,7 @@ class ScenarioGenerator:
         duration: int = 15
     ) -> Dict[str, Any]:
         """
-        Generate a scenario using simplified inputs from frontend
+        Generate a scenario using simplified inputs from frontend with web search
         """
         prompt = self._build_simplified_prompt(
             product_name,
@@ -64,16 +80,23 @@ class ScenarioGenerator:
             duration
         )
 
-        message = self.client.messages.create(
+        message = await asyncio.to_thread(
+            self.client.messages.create,
             model="claude-sonnet-4-5",
             max_tokens=4000,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "user", "content": prompt}],
+            tools=[{
+                "type": "web_search_20250305",
+                "name": "web_search",
+                "max_uses": self.max_web_search_uses
+            }]
         )
 
-        # Parse the response
-        scenario_text = message.content[0].text
+        # Parse the response - extract text blocks only (skip web search tool blocks)
+        scenario_text = ""
+        for block in message.content:
+            if hasattr(block, 'text'):
+                scenario_text += block.text
 
         # Try to extract JSON from the response
         try:
