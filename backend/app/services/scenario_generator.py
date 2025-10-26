@@ -121,7 +121,7 @@ class ScenarioGenerator:
         """
         Build the prompt for scenario generation
         """
-        return f"""You are a sales training expert. Generate a realistic sales call scenario based on the following inputs:
+        return f"""You are a sales training expert with web search capabilities. Generate an ultra-realistic sales call scenario based on the following inputs:
 
 PRODUCT INFORMATION:
 {json.dumps(product_data, indent=2)}
@@ -134,6 +134,16 @@ PREFERENCES:
 - Call Type: {preferences['call_type']}
 - Expected Duration: {preferences['duration']} minutes
 - Focus Areas: {preferences.get('focus_areas', [])}
+
+🔍 WEB SEARCH INSTRUCTIONS:
+You have web search access. Use it to enhance realism:
+- Search for competitor pricing, features, and customer complaints
+- Find current industry challenges and pain points
+- Look up typical budgets and KPIs for the persona's role
+- Discover real objection patterns for this type of sale
+- Get current market trends and statistics
+
+Incorporate search findings naturally throughout the scenario - use real competitor names, actual pricing, current industry data, and specific pain points you discover.
 
 Generate a comprehensive scenario that includes:
 
@@ -203,6 +213,8 @@ Return the scenario as a valid JSON object with this structure:
 }}
 
 Make the scenario realistic and appropriate for the {preferences['difficulty']} difficulty level.
+
+**IMPORTANT**: Use web search to find real competitors, actual pricing, current industry challenges, and specific data points. The more specific and current your scenario, the better the training value.
 """
 
     def _build_simplified_prompt(
@@ -217,7 +229,7 @@ Make the scenario realistic and appropriate for the {preferences['difficulty']} 
         """
         Build the prompt for simplified scenario generation
         """
-        return f"""You are a sales training expert. Generate a realistic sales call scenario based on the following inputs:
+        return f"""You are a sales training expert with web search capabilities. Generate an ultra-realistic sales call scenario based on the following inputs:
 
 PRODUCT INFORMATION:
 Product Name: {product_name}
@@ -231,7 +243,64 @@ CALL SETTINGS:
 - Call Type: {call_type}
 - Expected Duration: {duration} minutes
 
-Your task is to create a comprehensive, realistic sales call scenario. Based on the persona description provided, intelligently infer and create:
+═══════════════════════════════════════════════════════════
+🔍 WEB SEARCH INSTRUCTIONS - USE THESE TO ENHANCE REALISM
+═══════════════════════════════════════════════════════════
+
+You have access to web search. Use it strategically to make this scenario incredibly realistic and current. Here's when and what to search:
+
+**REQUIRED SEARCHES (Use 2-4 of these based on available information):**
+
+1. **Competitor Intelligence** (if product category is clear):
+   - Search: "top competitors for [product type] 2025"
+   - Search: "[identified competitor] pricing and features"
+   - Search: "[competitor] customer complaints and reviews"
+   → Use this to create realistic competitive objections
+
+2. **Industry-Specific Pain Points** (if industry is mentioned in persona):
+   - Search: "biggest challenges facing [industry] in 2025"
+   - Search: "[job title] pain points and frustrations [industry]"
+   - Search: "common problems with [current solution type]"
+   → Use this to create authentic, current pain points
+
+3. **Role-Specific Context** (if job title is clear):
+   - Search: "[job title] responsibilities and KPIs"
+   - Search: "typical budget for [job title] [solution type]"
+   - Search: "what metrics does a [job title] care about"
+   → Use this to set realistic budget, authority, and concerns
+
+4. **Current Market Trends**:
+   - Search: "[industry] trends 2025"
+   - Search: "emerging challenges in [industry sector]"
+   → Use this to make the scenario feel current and relevant
+
+5. **Real Objection Patterns**:
+   - Search: "common objections when selling [solution type]"
+   - Search: "why companies hesitate to buy [product category]"
+   → Use this to create realistic, difficult-to-handle objections
+
+6. **Pricing & Budget Intelligence**:
+   - Search: "average cost of [solution type] for [company size]"
+   - Search: "[similar product] pricing models"
+   → Use this to set realistic budget constraints
+
+**HOW TO USE SEARCH RESULTS:**
+- Extract specific, current facts and data points
+- Use actual competitor names, pricing, and features you find
+- Incorporate real industry statistics and trends
+- Reference actual pain points mentioned in forums, reviews, or articles
+- Make objections based on real competitive advantages you discover
+- Set budgets based on actual market pricing you find
+
+**SEARCH STRATEGY:**
+- Prioritize searches that will most impact scenario realism
+- Use specific, targeted queries
+- Combine multiple search results to create a cohesive story
+- Don't just list facts - weave them naturally into the scenario
+
+═══════════════════════════════════════════════════════════
+
+Your task is to create a comprehensive, realistic sales call scenario. Based on the persona description provided AND your web search findings, intelligently create:
 
 1. **Persona Details** (expand from the description provided):
    - Create a realistic full name
@@ -240,14 +309,14 @@ Your task is to create a comprehensive, realistic sales call scenario. Based on 
    - Set decision-making authority level
    - Identify who they report to
 
-2. **Context & Situation**:
-   - Describe their current business situation related to the product
-   - List 3-5 specific pain points they're experiencing
-   - Set a realistic budget range based on their role/company
-   - Define a timeline for making a decision
-   - List 2-3 competitors they might be considering
+2. **Context & Situation** (USE WEB SEARCH RESULTS HERE):
+   - Describe their current business situation related to the product (incorporate current industry trends you found)
+   - List 3-5 specific pain points they're experiencing (use actual pain points from your searches - be specific!)
+   - Set a realistic budget range based on their role/company (use actual pricing data from competitor searches)
+   - Define a timeline for making a decision (consider industry buying cycles you discovered)
+   - List 2-3 competitors they might be considering (use REAL competitor names from your searches)
 
-3. **Objections** (create 3-5 realistic objections based on difficulty level):
+3. **Objections** (USE WEB SEARCH - create realistic objections based on actual competitive intelligence and market data):
    - For "easy": 1-2 soft objections that are easy to overcome
    - For "medium": 3 moderate objections requiring good technique
    - For "hard": 4-5 challenging objections including price, timing, and competition
@@ -255,8 +324,14 @@ Your task is to create a comprehensive, realistic sales call scenario. Based on 
 
    For each objection include:
    - Type (price, timing, competition, authority, need, trust, etc.)
-   - Exact wording they'll use
+   - Exact wording they'll use (reference REAL competitors, actual pricing you found, specific features)
    - Ideal response approach
+
+   **Make objections realistic by:**
+   - Using actual competitor names and their real advantages you discovered
+   - Citing actual price points from your searches ("Your competitor charges $X...")
+   - Mentioning real industry concerns or trends you found
+   - Including specific features/capabilities that real alternatives offer
 
 4. **Success Criteria**:
    - Must-achieve goals (minimum to not fail)
@@ -311,9 +386,30 @@ Return the scenario as a valid JSON object with this exact structure:
 }}
 
 IMPORTANT INSTRUCTIONS:
+- **USE WEB SEARCH EXTENSIVELY** - The more current, real data you incorporate, the better
 - Make the persona feel authentic and three-dimensional based on the description
 - Ensure objections match the difficulty level ({difficulty})
 - For {call_type} calls, set appropriate context (cold = no prior relationship, warm = some awareness, follow-up = continuing conversation, closing = ready to make decision)
 - Make the scenario challenging but realistic
 - Include specific details that make the scenario feel real
-- Return ONLY valid JSON, no additional text before or after"""
+- **CRITICAL**: Weave web search findings naturally throughout - don't just add them as afterthoughts
+
+═══════════════════════════════════════════════════════════
+EXAMPLES OF GOOD VS. BAD USE OF WEB SEARCH:
+═══════════════════════════════════════════════════════════
+
+❌ BAD (Generic, no web search):
+"Pain Point: Current CRM is slow and hard to use"
+"Competitor: Some other CRM tool"
+"Budget: Around $10,000"
+
+✅ GOOD (Specific, using web search):
+"Pain Point: Current Salesforce instance has adoption rate of only 40% (typical for implementations without proper training per 2025 Gartner research), causing $50K in lost productivity annually"
+"Competitor: Considering HubSpot Sales Hub ($450/user/month for Professional tier) which offers better UI but lacks advanced forecasting"
+"Budget: $45,000-$60,000 annually (aligned with industry standard of $500-700/user for mid-market sales teams of 100 people)"
+
+**The difference:** Specificity, current data, real numbers, actual competitors, and industry context.
+
+═══════════════════════════════════════════════════════════
+
+Return ONLY valid JSON, no additional text before or after"""
