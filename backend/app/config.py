@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     # AI APIs (optional for now)
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+    gemini_api_key: str = ""  # For audio analysis
 
     # Vapi Voice AI
     vapi_api_key: str = ""  # Private key for server-side SDK

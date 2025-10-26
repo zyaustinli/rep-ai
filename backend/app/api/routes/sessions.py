@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, Request
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, Request, BackgroundTasks
 from typing import List, Optional
 from app.schemas.session import (
     Session,
@@ -15,9 +15,69 @@ from app.services.conversation import ConversationService
 from app.services.vapi_service import VapiService
 from app.config import settings
 import logging
+import asyncio
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def trigger_audio_analysis_background(session_id: str, recording_url: str):
+    """
+    Background task to trigger Gemini audio analysis after call ends
+    This runs asynchronously and doesn't block the webhook response
+    """
+    try:
+        logger.info(f"Starting background audio analysis for session {session_id}")
+
+        # Small delay to ensure recording is fully processed
+        await asyncio.sleep(5)
+
+        # Get session data
+        supabase = get_supabase()
+        session_result = supabase.table("sessions").select("*").eq("id", session_id).execute()
+
+        if not session_result.data:
+            logger.error(f"Session {session_id} not found for audio analysis")
+            return
+
+        session_data = session_result.data[0]
+
+        # Check if Gemini API key is configured
+        if not settings.gemini_api_key:
+            logger.warning(f"Gemini API key not configured. Skipping audio analysis for session {session_id}")
+            return
+
+        # Import here to avoid circular imports
+        from app.services.gemini_audio_service import GeminiAudioService
+
+        # Analyze with Gemini
+        gemini_service = GeminiAudioService(settings.gemini_api_key)
+        audio_analysis = await gemini_service.analyze_call_audio(
+            audio_file_path=recording_url,
+            session_context={
+                "difficulty": session_data.get("difficulty"),
+                "call_type": session_data.get("call_type"),
+                "duration_seconds": session_data.get("duration_seconds", 900)
+            },
+            session_id=session_id
+        )
+
+        # Save analysis to database
+        update_result = supabase.table("analyses").update({
+            "audio_analysis": audio_analysis
+        }).eq("session_id", session_id).execute()
+
+        if not update_result.data:
+            # If no analysis record exists yet, create one
+            supabase.table("analyses").insert({
+                "session_id": session_id,
+                "audio_analysis": audio_analysis
+            }).execute()
+
+        logger.info(f"Successfully completed audio analysis for session {session_id}")
+
+    except Exception as e:
+        logger.error(f"Failed to analyze audio for session {session_id}: {str(e)}", exc_info=True)
 
 
 @router.post("/generate-scenario")
@@ -368,14 +428,111 @@ async def save_transcript(
     }
 
 
+@router.post("/{session_id}/analyze-audio")
+async def analyze_session_audio(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase = Depends(get_supabase)
+):
+    """
+    Trigger Gemini audio analysis for a session
+    Automatically fetches recording URL from Supabase and downloads audio for analysis
+
+    Args:
+        session_id: Session UUID
+
+    Returns:
+        Audio analysis result with detailed vocal delivery feedback
+    """
+    from app.services.gemini_audio_service import GeminiAudioService
+
+    # Verify session belongs to user and get recording URL
+    session_result = supabase.table("sessions").select("*").eq(
+        "id", session_id
+    ).eq("user_id", current_user.id).execute()
+
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session_data = session_result.data[0]
+
+    # Check if recording URL exists
+    recording_url = session_data.get("recording_url")
+    if not recording_url:
+        # Check session status to provide helpful error message
+        session_status = session_data.get("status")
+        if session_status != "completed":
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot analyze audio: Session has not been completed yet."
+            )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="Recording URL not available. The call may still be processing or recording was not enabled."
+            )
+
+    # Validate Gemini API key is configured
+    if not settings.gemini_api_key:
+        raise HTTPException(
+            status_code=500,
+            detail="Gemini API key not configured. Cannot perform audio analysis."
+        )
+
+    # Analyze with Gemini (will download from URL automatically)
+    try:
+        gemini_service = GeminiAudioService(settings.gemini_api_key)
+        audio_analysis = await gemini_service.analyze_call_audio(
+            audio_file_path=recording_url,  # Pass URL directly
+            session_context={
+                "difficulty": session_data.get("difficulty"),
+                "call_type": session_data.get("call_type"),
+                "duration_seconds": session_data.get("duration_seconds", 900)
+            },
+            session_id=session_id  # For temp file naming
+        )
+    except Exception as e:
+        logger.error(f"Failed to analyze audio for session {session_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Audio analysis failed: {str(e)}"
+        )
+
+    # Update analyses table with audio analysis
+    try:
+        update_result = supabase.table("analyses").update({
+            "audio_analysis": audio_analysis
+        }).eq("session_id", session_id).execute()
+
+        if not update_result.data:
+            # If no analysis record exists yet, create one
+            supabase.table("analyses").insert({
+                "session_id": session_id,
+                "audio_analysis": audio_analysis
+            }).execute()
+    except Exception as e:
+        logger.error(f"Failed to save audio analysis for session {session_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save analysis results: {str(e)}"
+        )
+
+    return {
+        "audio_analysis": audio_analysis,
+        "session_id": session_id,
+        "message": "Audio analysis completed successfully"
+    }
+
+
 @router.post("/vapi/webhook")
 async def vapi_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     supabase = Depends(get_supabase)
 ):
     """
     Webhook endpoint for Vapi events
-    Handles call-end events to capture recording URLs and other artifacts
+    Handles call-end events to capture recording URLs and trigger audio analysis
     """
     try:
         # Parse webhook payload
@@ -434,6 +591,17 @@ async def vapi_webhook(
                     ).execute()
 
                     logger.info(f"Session {session_id} updated successfully")
+
+                    # Trigger audio analysis in background if recording URL exists
+                    if recording_url:
+                        logger.info(f"Scheduling background audio analysis for session {session_id}")
+                        background_tasks.add_task(
+                            trigger_audio_analysis_background,
+                            session_id,
+                            recording_url
+                        )
+                    else:
+                        logger.warning(f"No recording URL available for session {session_id}. Skipping audio analysis.")
                 else:
                     logger.warning(f"No session found for assistant_id: {assistant_id}")
 

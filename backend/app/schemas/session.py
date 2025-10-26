@@ -117,3 +117,35 @@ class TranscriptSaveRequest(BaseModel):
     entries: List[TranscriptEntry]
     duration_seconds: int
     vapi_call_id: Optional[str] = None
+
+
+class Analysis(BaseModel):
+    """Performance analysis results for a session"""
+    id: str
+    session_id: str
+
+    # Category scores (0-100)
+    discovery_score: Optional[int] = None
+    product_knowledge_score: Optional[int] = None
+    objection_handling_score: Optional[int] = None
+    rapport_building_score: Optional[int] = None
+    value_communication_score: Optional[int] = None
+    closing_score: Optional[int] = None
+    communication_score: Optional[int] = None
+
+    # Detailed analysis
+    strengths: Optional[Dict[str, Any]] = None
+    weaknesses: Optional[Dict[str, Any]] = None
+    key_moments: Optional[List[Dict[str, Any]]] = None
+    recommendations: Optional[List[Dict[str, Any]]] = None
+
+    # Full analysis text
+    detailed_feedback: Optional[str] = None
+
+    # Gemini audio analysis
+    audio_analysis: Optional[Dict[str, Any]] = None
+
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

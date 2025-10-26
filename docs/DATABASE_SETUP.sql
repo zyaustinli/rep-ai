@@ -140,6 +140,9 @@ CREATE TABLE IF NOT EXISTS analyses (
     -- Full analysis text
     detailed_feedback TEXT,
 
+    -- Gemini audio analysis
+    audio_analysis JSONB,  -- Gemini audio analysis of vocal delivery using sales call rubric
+
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
