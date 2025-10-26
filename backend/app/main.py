@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api.routes import auth, products, sessions, analysis
+from app.api.routes import auth, products, sessions, analysis, documents
 
 app = FastAPI(
     title="Convo AI API",
@@ -21,6 +21,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(products.router, prefix="/api/products", tags=["products"])
+app.include_router(documents.router, prefix="/api/products", tags=["documents"])  # Nested under products
 app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 app.include_router(analysis.router, prefix="/api/analytics", tags=["analytics"])
 

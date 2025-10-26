@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { useVapi } from '@/hooks/useVapi';
+import { useHints } from '@/hooks/useHints';
+import HintPanel from '@/components/practice/HintPanel';
 
 export default function PracticePage({ params }: { params: { sessionId: string } }) {
   const router = useRouter();
@@ -17,6 +19,10 @@ export default function PracticePage({ params }: { params: { sessionId: string }
 
   // Initialize Vapi hook
   const vapi = useVapi();
+
+  // Hints state and hook
+  const [hintsVisible, setHintsVisible] = useState(true);
+  const { hints } = useHints(params.sessionId, vapi.isConnected);
 
   // Fetch session data on mount
   useEffect(() => {
@@ -201,7 +207,9 @@ export default function PracticePage({ params }: { params: { sessionId: string }
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <p className="font-medium">{error || vapi.error}</p>
+                  <p className="font-medium">
+                    {error || (typeof vapi.error === 'string' ? vapi.error : JSON.stringify(vapi.error))}
+                  </p>
                 </div>
               </div>
             )}
@@ -371,6 +379,13 @@ export default function PracticePage({ params }: { params: { sessionId: string }
                   </button>
                 </div>
               </div>
+
+              {/* Product Knowledge Hints */}
+              <HintPanel
+                hints={hints}
+                isVisible={hintsVisible}
+                onToggle={() => setHintsVisible(!hintsVisible)}
+              />
             </div>
           </div>
         )}

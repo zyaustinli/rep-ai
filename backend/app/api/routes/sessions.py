@@ -13,6 +13,8 @@ from app.api.deps import get_current_user
 from app.services.scenario_generator import ScenarioGenerator
 from app.services.conversation import ConversationService
 from app.services.vapi_service import VapiService
+from app.services.rag_classifier import RAGClassifier
+from app.services.vector_service import VectorService
 from app.config import settings
 import logging
 import asyncio
@@ -592,6 +594,75 @@ async def get_session_analysis(
     return analysis_result.data[0]
 
 
+@router.get("/{session_id}/hints")
+async def get_session_hints(
+    session_id: str,
+    include_delivered: bool = False,
+    current_user = Depends(get_current_user),
+    supabase = Depends(get_supabase)
+):
+    """
+    Get hints for a session (polling endpoint for frontend)
+
+    Frontend polls this endpoint every 1-2 seconds during practice session
+    to retrieve new RAG-generated hints
+
+    Query Parameters:
+        include_delivered: If true, return all hints. If false, only undelivered (default: false)
+
+    Returns:
+        {
+            "hints": [
+                {
+                    "id": "uuid",
+                    "question": "What's your pricing?",
+                    "hint_text": "We offer three tiers...",
+                    "source_type": "section",
+                    "source_name": "Pricing",
+                    "relevance_score": 0.89,
+                    "created_at": "2024-01-15T10:30:45Z"
+                }
+            ]
+        }
+    """
+    # Verify session belongs to user
+    session_result = supabase.table("sessions").select("id").eq(
+        "id", session_id
+    ).eq("user_id", current_user.id).execute()
+
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Build query
+    query = supabase.table("session_hints").select("*").eq("session_id", session_id)
+
+    # Filter by delivered status unless include_delivered=true
+    if not include_delivered:
+        query = query.eq("delivered", False)
+
+    # Order by most recent first
+    query = query.order("created_at", desc=True)
+
+    # Execute query
+    result = query.execute()
+
+    hints = result.data if result.data else []
+
+    # Mark hints as delivered if we're returning undelivered ones
+    if hints and not include_delivered:
+        hint_ids = [hint["id"] for hint in hints]
+
+        # Update delivered status
+        supabase.table("session_hints").update({
+            "delivered": True,
+            "delivered_at": "now()"
+        }).in_("id", hint_ids).execute()
+
+        logger.info(f"Marked {len(hint_ids)} hints as delivered for session {session_id}")
+
+    return {"hints": hints}
+
+
 @router.post("/vapi/webhook")
 async def vapi_webhook(
     request: Request,
@@ -615,6 +686,83 @@ async def vapi_webhook(
         logger.info(f"Received Vapi webhook event type: {event_type}")
 
         # Handle different event types
+
+        # RAG Pipeline: Process AI questions for product knowledge hints
+        if event_type == "transcript":
+            role = call_data.get("role")
+            transcript_text = call_data.get("transcript", "").strip()
+
+            # Only process assistant (AI) messages
+            if role == "assistant" and transcript_text:
+                logger.info(f"Processing AI question for RAG: '{transcript_text[:100]}...'")
+
+                # Get assistant_id and find session
+                call = call_data.get("call", {})
+                assistant_id = call.get("assistantId")
+
+                if assistant_id:
+                    # Find session by assistant_id
+                    session_result = supabase.table("sessions").select(
+                        "id, product_id"
+                    ).eq("assistant_id", assistant_id).execute()
+
+                    if session_result.data and len(session_result.data) > 0:
+                        session = session_result.data[0]
+                        session_id = session["id"]
+                        product_id = session.get("product_id")
+
+                        # Process RAG if product exists (always run, regardless of user preference)
+                        if product_id:
+                            try:
+                                # Step 1: Classify question
+                                classifier = RAGClassifier(settings.anthropic_api_key)
+                                needs_rag = await classifier.classify(transcript_text, timeout=3.0)
+
+                                if needs_rag:
+                                    logger.info(f"Question needs RAG - querying product knowledge")
+
+                                    # Step 2: Query ChromaDB
+                                    vector_service = VectorService()
+                                    rag_results = await vector_service.query_product_knowledge(
+                                        product_id=product_id,
+                                        query=transcript_text,
+                                        top_k=3
+                                    )
+
+                                    if rag_results and len(rag_results) > 0:
+                                        top_result = rag_results[0]
+
+                                        # Step 3: Save hint to database
+                                        hint_data = {
+                                            "session_id": session_id,
+                                            "question": transcript_text,
+                                            "hint_text": top_result["text"],
+                                            "hint_data": rag_results,  # Full results
+                                            "source_type": top_result.get("source_type"),
+                                            "source_name": top_result.get("source_name"),
+                                            "relevance_score": top_result.get("similarity"),
+                                            "delivered": False
+                                        }
+
+                                        supabase.table("session_hints").insert(hint_data).execute()
+
+                                        logger.info(
+                                            f"✅ Hint saved for session {session_id}: "
+                                            f"'{transcript_text[:50]}...' → "
+                                            f"{top_result.get('source_name')} "
+                                            f"(score: {top_result.get('similarity'):.2f})"
+                                        )
+                                    else:
+                                        logger.info(f"No relevant product knowledge found for: '{transcript_text[:50]}...'")
+                                else:
+                                    logger.info(f"Question classified as conversational - no RAG needed")
+
+                            except Exception as e:
+                                # Log error but don't break webhook
+                                logger.error(f"RAG pipeline error: {e}", exc_info=True)
+                        else:
+                            logger.debug(f"No product_id for session {session_id} - skipping RAG")
+
         if event_type == "end-of-call-report":
             # Extract call information
             call = call_data.get("call", {})

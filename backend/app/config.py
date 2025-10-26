@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     # Backend URL for webhooks
     backend_url: str = "http://localhost:8000"  # Default for local development
 
+    # ChromaDB / RAG Settings
+    chroma_persist_directory: str = "./chroma_data"  # Directory to persist vector data
+    rag_top_k: int = 5  # Number of chunks to retrieve in RAG queries
+    rag_classifier_confidence_threshold: float = 0.7  # Minimum confidence to trigger RAG
+
     class Config:
         env_file = ".env"
         case_sensitive = False

@@ -64,6 +64,7 @@ class SessionCreate(BaseModel):
     scenario: Dict[str, Any]
     difficulty: Difficulty
     call_type: CallType
+    rag_enabled: bool = False  # Whether RAG assistance is enabled for this session
 
 
 class Session(BaseModel):
@@ -85,6 +86,9 @@ class Session(BaseModel):
     assistant_id: Optional[str] = None  # Vapi assistant ID for this session
     vapi_call_id: Optional[str] = None  # Vapi call ID when call is active
     recording_url: Optional[str] = None  # URL to call recording from Vapi
+
+    # RAG assistance
+    rag_enabled: bool = False  # Whether RAG assistance is enabled
 
     class Config:
         from_attributes = True

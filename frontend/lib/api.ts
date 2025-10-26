@@ -29,6 +29,32 @@ export const apiClient = {
     get: (id: string) => api.get(`/api/products/${id}`),
     update: (id: string, data: any) => api.patch(`/api/products/${id}`, data),
     delete: (id: string) => api.delete(`/api/products/${id}`),
+
+    // RAG endpoints
+    vectorize: (id: string, force: boolean = false) =>
+      api.post(`/api/products/${id}/vectorize`, {}, { params: { force } }),
+    query: (id: string, query: string, top_k: number = 5) =>
+      api.post(`/api/products/${id}/query`, {}, { params: { query, top_k } }),
+
+    // Document management
+    uploadDocument: (id: string, file: File, onProgress?: (progress: number) => void) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return api.post(`/api/products/${id}/documents`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          if (onProgress && progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            onProgress(percentCompleted);
+          }
+        },
+      });
+    },
+    listDocuments: (id: string) => api.get(`/api/products/${id}/documents`),
+    getDocument: (productId: string, documentId: string) =>
+      api.get(`/api/products/${productId}/documents/${documentId}`),
+    deleteDocument: (productId: string, documentId: string) =>
+      api.delete(`/api/products/${productId}/documents/${documentId}`),
   },
 
   // Sessions
@@ -42,6 +68,7 @@ export const apiClient = {
     getAssistant: (id: string) => api.get(`/api/sessions/${id}/assistant`),
     getTranscript: (id: string) => api.get(`/api/sessions/${id}/transcript`),
     saveTranscript: (id: string, data: any) => api.post(`/api/sessions/${id}/transcript`, data),
+    getHints: (id: string) => api.get(`/api/sessions/${id}/hints`),
   },
 
   // Analysis
