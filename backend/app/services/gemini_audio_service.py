@@ -295,6 +295,35 @@ Return your analysis as a valid JSON object with this EXACT structure:
     "Practice pausing instead of using filler words",
     "Slow down when presenting pricing (rushed at 03:20)",
     "Build more rapport before transitioning to pitch"
+  ],
+  "transcriptAnalysis": [
+    {{
+      "timestamp": "00:45",
+      "speaker": "user",
+      "text": "Hi, my name is John from ABC Company...",
+      "rating": "good",
+      "score": 85,
+      "feedback": "Strong, confident opening. Clear introduction with professional tone.",
+      "category": "Opening & Introduction"
+    }},
+    {{
+      "timestamp": "03:20",
+      "speaker": "user",
+      "text": "So the price is um, like, around $500...",
+      "rating": "poor",
+      "score": 45,
+      "feedback": "Excessive filler words and hesitant delivery during pricing discussion undermined confidence. Practice stating prices clearly and firmly.",
+      "category": "Pitch & Value Proposition"
+    }},
+    {{
+      "timestamp": "05:15",
+      "speaker": "user",
+      "text": "I understand your concern about implementation time...",
+      "rating": "average",
+      "score": 70,
+      "feedback": "Good acknowledgment of objection, but could have followed up with more specific reassurance or evidence.",
+      "category": "Objection Handling"
+    }}
   ]
 }}
 
@@ -303,7 +332,16 @@ Return your analysis as a valid JSON object with this EXACT structure:
 - Be specific with timestamps (MM:SS format)
 - Focus on OBSERVABLE vocal characteristics from audio
 - Be constructive but honest in feedback
-- Scores should reflect {difficulty} difficulty level expectations"""
+- Scores should reflect {difficulty} difficulty level expectations
+
+**TRANSCRIPT ANALYSIS INSTRUCTIONS:**
+In the "transcriptAnalysis" array, analyze EVERY significant statement made by the SALESPERSON (user/speaker). For each:
+- Identify the approximate timestamp (MM:SS)
+- Include the text of what they said (paraphrased if needed)
+- Rate it as: "good" (score 80-100), "average" (score 60-79), or "poor" (score 0-59)
+- Provide specific feedback on WHY it was good/average/poor
+- Link it to the relevant rubric category
+- Focus on statements that demonstrate sales technique, not small talk or pleasantries"""
 
         return prompt
 
@@ -319,6 +357,17 @@ Return your analysis as a valid JSON object with this EXACT structure:
                 print(f"Extracted JSON string (first 500 chars): {json_str[:500]}...")
                 analysis = json.loads(json_str)
                 print(f"Successfully parsed Gemini response. Overall score: {analysis.get('overallScore', 'N/A')}")
+
+                # DEBUG: Check for transcriptAnalysis
+                if 'transcriptAnalysis' in analysis:
+                    transcript_count = len(analysis['transcriptAnalysis'])
+                    print(f"✓ transcriptAnalysis found with {transcript_count} entries")
+                    if transcript_count > 0:
+                        print(f"  First entry: {analysis['transcriptAnalysis'][0]}")
+                else:
+                    print("✗ WARNING: transcriptAnalysis field NOT found in Gemini response!")
+                    print(f"  Available keys: {list(analysis.keys())}")
+
                 return analysis
             else:
                 print("WARNING: Could not find JSON in Gemini response")
@@ -345,7 +394,8 @@ Return your analysis as a valid JSON object with this EXACT structure:
                 "energyLevel": "Unknown",
                 "clarityScore": 0
             },
-            "actionableRecommendations": ["Please try analysis again"]
+            "actionableRecommendations": ["Please try analysis again"],
+            "transcriptAnalysis": []
         }
 
     def prepare_for_database(self, audio_analysis: Dict[str, Any]) -> Dict[str, Any]:
