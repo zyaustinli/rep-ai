@@ -100,6 +100,12 @@ class GeminiAudioService:
                 contents=[prompt, audio_file]
             )
 
+            # Print the raw Gemini response for debugging
+            print("=" * 80)
+            print("GEMINI RAW RESPONSE:")
+            print(response.text)
+            print("=" * 80)
+
             # Parse response to structured JSON
             analysis = self._parse_analysis_response(response.text)
 
@@ -310,14 +316,18 @@ Return your analysis as a valid JSON object with this EXACT structure:
 
             if start_idx != -1 and end_idx > start_idx:
                 json_str = response_text[start_idx:end_idx]
+                print(f"Extracted JSON string (first 500 chars): {json_str[:500]}...")
                 analysis = json.loads(json_str)
+                print(f"Successfully parsed Gemini response. Overall score: {analysis.get('overallScore', 'N/A')}")
                 return analysis
             else:
                 print("WARNING: Could not find JSON in Gemini response")
+                print(f"Response text (first 500 chars): {response_text[:500]}")
                 return self._get_empty_analysis()
 
         except json.JSONDecodeError as e:
             print(f"ERROR: Failed to parse Gemini JSON response: {e}")
+            print(f"Attempted to parse (first 500 chars): {response_text[:500]}")
             return self._get_empty_analysis()
 
     def _get_empty_analysis(self) -> Dict[str, Any]:
@@ -336,4 +346,24 @@ Return your analysis as a valid JSON object with this EXACT structure:
                 "clarityScore": 0
             },
             "actionableRecommendations": ["Please try analysis again"]
+        }
+
+    def prepare_for_database(self, audio_analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Prepare Gemini audio analysis for database storage
+
+        Extracts key fields for quick querying while keeping full JSON
+
+        Returns:
+            Dict with overall_score, overall_grade, strengths, weaknesses,
+            recommendations, and full audio_analysis
+        """
+        return {
+            "overall_score": audio_analysis.get("overallScore"),
+            "overall_grade": audio_analysis.get("overallGrade"),
+            "strengths": audio_analysis.get("keyStrengths"),
+            "weaknesses": audio_analysis.get("criticalWeaknesses"),
+            "recommendations": audio_analysis.get("actionableRecommendations"),
+            "audio_analysis": audio_analysis,
+            "detailed_feedback": f"Overall Score: {audio_analysis.get('overallScore', 0)}/100 - Grade: {audio_analysis.get('overallGrade', 'N/A')}"
         }

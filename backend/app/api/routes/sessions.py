@@ -62,17 +62,18 @@ async def trigger_audio_analysis_background(session_id: str, recording_url: str)
             session_id=session_id
         )
 
+        # Prepare analysis data for database (extracts key fields + full JSON)
+        db_data = gemini_service.prepare_for_database(audio_analysis)
+        db_data["session_id"] = session_id
+
         # Save analysis to database
-        update_result = supabase.table("analyses").update({
-            "audio_analysis": audio_analysis
-        }).eq("session_id", session_id).execute()
+        update_result = supabase.table("analyses").update(db_data).eq(
+            "session_id", session_id
+        ).execute()
 
         if not update_result.data:
             # If no analysis record exists yet, create one
-            supabase.table("analyses").insert({
-                "session_id": session_id,
-                "audio_analysis": audio_analysis
-            }).execute()
+            supabase.table("analyses").insert(db_data).execute()
 
         logger.info(f"Successfully completed audio analysis for session {session_id}")
 
@@ -500,16 +501,17 @@ async def analyze_session_audio(
 
     # Update analyses table with audio analysis
     try:
-        update_result = supabase.table("analyses").update({
-            "audio_analysis": audio_analysis
-        }).eq("session_id", session_id).execute()
+        # Prepare analysis data for database (extracts key fields + full JSON)
+        db_data = gemini_service.prepare_for_database(audio_analysis)
+        db_data["session_id"] = session_id
+
+        update_result = supabase.table("analyses").update(db_data).eq(
+            "session_id", session_id
+        ).execute()
 
         if not update_result.data:
             # If no analysis record exists yet, create one
-            supabase.table("analyses").insert({
-                "session_id": session_id,
-                "audio_analysis": audio_analysis
-            }).execute()
+            supabase.table("analyses").insert(db_data).execute()
     except Exception as e:
         logger.error(f"Failed to save audio analysis for session {session_id}: {str(e)}")
         raise HTTPException(
@@ -522,6 +524,49 @@ async def analyze_session_audio(
         "session_id": session_id,
         "message": "Audio analysis completed successfully"
     }
+
+
+@router.get("/{session_id}/analysis")
+async def get_session_analysis(
+    session_id: str,
+    current_user: dict = Depends(get_current_user),
+    supabase = Depends(get_supabase)
+):
+    """
+    Get analysis for a completed session
+
+    Returns the complete analysis record including Gemini audio analysis,
+    overall scores, strengths, weaknesses, and recommendations.
+    """
+    # Verify session belongs to user
+    session_result = supabase.table("sessions").select("id, status").eq(
+        "id", session_id
+    ).eq("user_id", current_user.id).execute()
+
+    if not session_result.data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session_data = session_result.data[0]
+
+    # Check if session is completed
+    if session_data.get("status") != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot retrieve analysis: Session has not been completed yet."
+        )
+
+    # Get analysis
+    analysis_result = supabase.table("analyses").select("*").eq(
+        "session_id", session_id
+    ).execute()
+
+    if not analysis_result.data:
+        raise HTTPException(
+            status_code=404,
+            detail="Analysis not found. The audio analysis may still be processing. Please try again in a moment."
+        )
+
+    return analysis_result.data[0]
 
 
 @router.post("/vapi/webhook")
