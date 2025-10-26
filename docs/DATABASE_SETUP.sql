@@ -1,7 +1,10 @@
 -- ============================================
 -- Sales Call Practice Platform - Database Setup
 -- ============================================
+-- CURRENT SCHEMA (Updated: 2025-01-XX)
 -- Run these queries in your Supabase SQL Editor
+--
+-- FOR EXISTING DATABASES: See migration section at bottom
 -- ============================================
 
 -- 1. PROFILES TABLE (extends auth.users)
@@ -74,6 +77,7 @@ CREATE TABLE IF NOT EXISTS sessions (
     -- Vapi integration fields
     assistant_id TEXT,  -- Vapi assistant ID for this session
     vapi_call_id TEXT,  -- Vapi call ID when call is active
+    recording_url TEXT,  -- URL to the call recording from Vapi
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -122,32 +126,29 @@ CREATE TABLE IF NOT EXISTS analyses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 
-    -- Category scores (0-100)
-    discovery_score INTEGER CHECK (discovery_score >= 0 AND discovery_score <= 100),
-    product_knowledge_score INTEGER CHECK (product_knowledge_score >= 0 AND product_knowledge_score <= 100),
-    objection_handling_score INTEGER CHECK (objection_handling_score >= 0 AND objection_handling_score <= 100),
-    rapport_building_score INTEGER CHECK (rapport_building_score >= 0 AND rapport_building_score <= 100),
-    value_communication_score INTEGER CHECK (value_communication_score >= 0 AND value_communication_score <= 100),
-    closing_score INTEGER CHECK (closing_score >= 0 AND closing_score <= 100),
-    communication_score INTEGER CHECK (communication_score >= 0 AND communication_score <= 100),
+    -- Overall scores (for easy querying and display)
+    overall_score INTEGER CHECK (overall_score >= 0 AND overall_score <= 100),
+    overall_grade TEXT,  -- A+, A, A-, B+, B, B-, C+, C, etc.
 
-    -- Detailed analysis
-    strengths JSONB,  -- Object with arrays of strengths by category
-    weaknesses JSONB,  -- Object with arrays of weaknesses by category
-    key_moments JSONB,  -- Array of key moment objects
-    recommendations JSONB,  -- Array of recommendation objects
+    -- Detailed analysis fields (legacy, can be populated from audio_analysis if needed)
+    strengths JSONB,  -- Array of key strengths from audio analysis
+    weaknesses JSONB,  -- Array of critical weaknesses from audio analysis
+    key_moments JSONB,  -- Array of key moment objects (for future use)
+    recommendations JSONB,  -- Array of actionable recommendation strings
 
-    -- Full analysis text
+    -- Full analysis text (summary)
     detailed_feedback TEXT,
 
-    -- Gemini audio analysis
-    audio_analysis JSONB,  -- Gemini audio analysis of vocal delivery using sales call rubric
+    -- Gemini audio analysis (COMPLETE structured analysis)
+    -- Contains: categories[], overallScore, overallGrade, keyStrengths[],
+    -- criticalWeaknesses[], audioSpecificInsights{}, actionableRecommendations[]
+    audio_analysis JSONB,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Add comment
-COMMENT ON TABLE analyses IS 'Performance analysis results for completed sessions';
+COMMENT ON TABLE analyses IS 'Performance analysis results with Gemini audio analysis. The audio_analysis JSONB field contains the complete hierarchical analysis from Gemini including categories, criteria, scores, and insights.';
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_analyses_session_id ON analyses(session_id);
@@ -328,23 +329,19 @@ GROUP BY s.user_id;
 COMMENT ON VIEW user_session_stats IS 'Aggregated statistics per user';
 
 
--- View for skill breakdown
-CREATE OR REPLACE VIEW user_skill_breakdown AS
+-- View for overall analysis scores
+CREATE OR REPLACE VIEW user_analysis_overview AS
 SELECT
     s.user_id,
-    AVG(a.discovery_score) as avg_discovery,
-    AVG(a.product_knowledge_score) as avg_product_knowledge,
-    AVG(a.objection_handling_score) as avg_objection_handling,
-    AVG(a.rapport_building_score) as avg_rapport_building,
-    AVG(a.value_communication_score) as avg_value_communication,
-    AVG(a.closing_score) as avg_closing,
-    AVG(a.communication_score) as avg_communication
+    AVG(a.overall_score) as avg_overall_score,
+    COUNT(a.id) as total_analyses,
+    MAX(a.created_at) as last_analysis_date
 FROM sessions s
 JOIN analyses a ON a.session_id = s.id
-WHERE s.status = 'completed'
+WHERE s.status = 'completed' AND a.overall_score IS NOT NULL
 GROUP BY s.user_id;
 
-COMMENT ON VIEW user_skill_breakdown IS 'Average scores by skill category per user';
+COMMENT ON VIEW user_analysis_overview IS 'Average overall scores from audio analysis per user. For detailed category scores, query audio_analysis JSONB field directly.';
 
 
 -- ============================================
@@ -420,8 +417,68 @@ VALUES (
 
 
 -- ============================================
+-- MIGRATION FOR EXISTING DATABASES
+-- ============================================
+-- If you already have a database with the old schema, run these queries:
+
+-- 1. Add recording_url to sessions table (if not exists)
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS recording_url TEXT;
+COMMENT ON COLUMN sessions.recording_url IS 'URL to the call recording from Vapi';
+
+-- 2. Update analyses table structure
+-- Drop old individual score columns (they don't match Gemini's output)
+ALTER TABLE analyses
+  DROP COLUMN IF EXISTS discovery_score,
+  DROP COLUMN IF EXISTS product_knowledge_score,
+  DROP COLUMN IF EXISTS objection_handling_score,
+  DROP COLUMN IF EXISTS rapport_building_score,
+  DROP COLUMN IF EXISTS value_communication_score,
+  DROP COLUMN IF EXISTS closing_score,
+  DROP COLUMN IF EXISTS communication_score;
+
+-- Add overall_score and overall_grade columns
+ALTER TABLE analyses
+  ADD COLUMN IF NOT EXISTS overall_score INTEGER CHECK (overall_score >= 0 AND overall_score <= 100),
+  ADD COLUMN IF NOT EXISTS overall_grade TEXT;
+
+-- Update table comment
+COMMENT ON TABLE analyses IS 'Performance analysis results with Gemini audio analysis. The audio_analysis JSONB field contains the complete hierarchical analysis from Gemini including categories, criteria, scores, and insights.';
+
+-- Add column comments
+COMMENT ON COLUMN analyses.overall_score IS 'Overall performance score (0-100) from Gemini audio analysis';
+COMMENT ON COLUMN analyses.overall_grade IS 'Letter grade (A+, A, A-, B+, etc.) from Gemini audio analysis';
+COMMENT ON COLUMN analyses.strengths IS 'Array of key strengths from Gemini keyStrengths field';
+COMMENT ON COLUMN analyses.weaknesses IS 'Array of critical weaknesses from Gemini criticalWeaknesses field';
+COMMENT ON COLUMN analyses.recommendations IS 'Array of actionable recommendations from Gemini actionableRecommendations field';
+COMMENT ON COLUMN analyses.audio_analysis IS 'Complete Gemini analysis JSON with categories[], criteria[], scores, audioSpecificInsights{}, etc.';
+
+-- 3. Drop old user_skill_breakdown view (references deleted columns)
+DROP VIEW IF EXISTS user_skill_breakdown;
+
+-- 4. Create new user_analysis_overview view
+CREATE OR REPLACE VIEW user_analysis_overview AS
+SELECT
+    s.user_id,
+    AVG(a.overall_score) as avg_overall_score,
+    COUNT(a.id) as total_analyses,
+    MAX(a.created_at) as last_analysis_date
+FROM sessions s
+JOIN analyses a ON a.session_id = s.id
+WHERE s.status = 'completed' AND a.overall_score IS NOT NULL
+GROUP BY s.user_id;
+
+COMMENT ON VIEW user_analysis_overview IS 'Average overall scores from audio analysis per user. For detailed category scores, query audio_analysis JSONB field directly.';
+
+
+-- ============================================
 -- SETUP COMPLETE
 -- ============================================
 
 -- Verify setup by running:
 -- SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+
+-- Verify analyses table structure:
+-- SELECT column_name, data_type, is_nullable
+-- FROM information_schema.columns
+-- WHERE table_name = 'analyses'
+-- ORDER BY ordinal_position;

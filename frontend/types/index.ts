@@ -96,43 +96,55 @@ export interface Transcript {
   created_at: string;
 }
 
-export interface CategoryAnalysis {
+// Gemini Audio Analysis Types
+export interface GeminiKeyFactor {
+  factor: string;
   score: number;
+  evidence: string;
   strengths: string[];
-  weaknesses: string[];
-  examples: Array<{
-    timestamp: number;
-    quote: string;
-    feedback: string;
-  }>;
+  improvements: string[];
 }
 
+export interface GeminiCriterion {
+  area: string;
+  score: number;
+  keyFactors: GeminiKeyFactor[];
+}
+
+export interface GeminiCategory {
+  category: string;
+  overallScore: number;
+  criteria: GeminiCriterion[];
+}
+
+export interface AudioSpecificInsights {
+  toneAnalysis: string;
+  pacingAnalysis: string;
+  fillerWordCount: number;
+  energyLevel: string;
+  clarityScore: number;
+}
+
+export interface GeminiAudioAnalysis {
+  categories: GeminiCategory[];
+  overallScore: number;
+  overallGrade: string;
+  keyStrengths: string[];
+  criticalWeaknesses: string[];
+  audioSpecificInsights: AudioSpecificInsights;
+  actionableRecommendations: string[];
+}
+
+// Updated Analysis interface matching new database schema
 export interface Analysis {
   id: string;
   session_id: string;
-  discovery_score: number;
-  product_knowledge_score: number;
-  objection_handling_score: number;
-  rapport_building_score: number;
-  value_communication_score: number;
-  closing_score: number;
-  communication_score: number;
-  strengths: Record<string, string[]>;
-  weaknesses: Record<string, string[]>;
-  key_moments: Array<{
-    timestamp: number;
-    title: string;
-    description: string;
-    evaluation: string;
-    rating: 'excellent' | 'good' | 'needs_improvement';
-  }>;
-  recommendations: Array<{
-    priority: 'high' | 'medium' | 'low';
-    category: string;
-    suggestion: string;
-    reasoning: string;
-    practiceExercise: string;
-  }>;
+  overall_score: number;
+  overall_grade: string;
+  strengths: string[];  // From Gemini keyStrengths
+  weaknesses: string[];  // From Gemini criticalWeaknesses
+  recommendations: string[];  // From Gemini actionableRecommendations
+  audio_analysis: GeminiAudioAnalysis;  // Complete Gemini response
   detailed_feedback: string;
   created_at: string;
 }

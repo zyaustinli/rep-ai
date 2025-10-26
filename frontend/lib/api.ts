@@ -40,12 +40,14 @@ export const apiClient = {
     generateScenarioSimple: (data: any) => api.post('/api/sessions/generate-scenario-simple', data),
     analyze: (id: string) => api.post(`/api/sessions/${id}/analyze`),
     getAssistant: (id: string) => api.get(`/api/sessions/${id}/assistant`),
+    getTranscript: (id: string) => api.get(`/api/sessions/${id}/transcript`),
     saveTranscript: (id: string, data: any) => api.post(`/api/sessions/${id}/transcript`, data),
   },
 
   // Analysis
   analysis: {
     get: (sessionId: string) => api.get(`/api/sessions/${sessionId}/analysis`),
+    triggerAudioAnalysis: (sessionId: string) => api.post(`/api/sessions/${sessionId}/analyze-audio`),
   },
 
   // User
