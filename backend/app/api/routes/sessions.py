@@ -18,6 +18,8 @@ from app.services.vector_service import VectorService
 from app.config import settings
 import logging
 import asyncio
+import hmac
+import hashlib
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -179,7 +181,8 @@ async def create_session(
             scenario=session.scenario,
             difficulty=session.difficulty.value if hasattr(session.difficulty, 'value') else session.difficulty,
             call_type=session.call_type.value if hasattr(session.call_type, 'value') else session.call_type,
-            backend_url=settings.backend_url
+            backend_url=settings.backend_url,
+            webhook_secret=settings.vapi_webhook_secret
         )
 
         # Update session with assistant_id
@@ -673,6 +676,50 @@ async def get_session_hints(
     return {"hints": hints}
 
 
+def verify_vapi_webhook_signature(request_body: bytes, signature: str, secret: str) -> bool:
+    """
+    Verify webhook signature from Vapi
+
+    Args:
+        request_body: Raw request body bytes
+        signature: Signature from x-vapi-signature header
+        secret: Your VAPI_WEBHOOK_SECRET
+
+    Returns:
+        True if signature is valid, False otherwise
+
+    Note: Vapi's exact signature algorithm should be verified in their documentation.
+    This implementation assumes HMAC-SHA256 of the raw request body.
+    Common formats:
+    - HMAC-SHA256 hex digest
+    - "sha256=<hex_digest>" (GitHub style)
+    - Base64 encoded HMAC
+
+    Adjust based on Vapi's actual implementation.
+    """
+    if not secret or not signature:
+        return False
+
+    try:
+        # Compute HMAC-SHA256 of request body
+        expected_signature = hmac.new(
+            secret.encode('utf-8'),
+            request_body,
+            hashlib.sha256
+        ).hexdigest()
+
+        # Support both plain hex and "sha256=<hex>" formats
+        if signature.startswith("sha256="):
+            signature = signature[7:]  # Remove "sha256=" prefix
+
+        # Constant-time comparison to prevent timing attacks
+        return hmac.compare_digest(expected_signature, signature)
+
+    except Exception as e:
+        logger.error(f"Error verifying webhook signature: {e}")
+        return False
+
+
 @router.get("/test-logging")
 async def test_logging():
     """Test endpoint to verify logging is working"""
@@ -702,8 +749,34 @@ async def vapi_webhook(
     logger.info("=" * 80)
 
     try:
+        # Get raw request body for signature verification
+        request_body = await request.body()
+
+        # Verify webhook signature if secret is configured
+        if settings.vapi_webhook_secret:
+            signature = request.headers.get("x-vapi-signature", "")
+
+            if not signature:
+                logger.warning("⚠️ Webhook signature missing but VAPI_WEBHOOK_SECRET is configured")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Webhook signature missing"
+                )
+
+            if not verify_vapi_webhook_signature(request_body, signature, settings.vapi_webhook_secret):
+                logger.error("❌ Invalid webhook signature - possible spoofing attempt")
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid webhook signature"
+                )
+
+            logger.info("✅ Webhook signature verified")
+        else:
+            logger.debug("⚠️ VAPI_WEBHOOK_SECRET not configured - skipping signature verification")
+
         # Parse webhook payload
-        payload = await request.json()
+        import json
+        payload = json.loads(request_body.decode('utf-8'))
 
         # Log full payload for debugging
         print(f"📦 Raw Payload Keys: {list(payload.keys())}")

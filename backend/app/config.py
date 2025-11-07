@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Vapi Voice AI
     vapi_api_key: str = ""  # Private key for server-side SDK
     vapi_public_key: str = ""  # Public key for frontend
+    vapi_webhook_secret: str = ""  # Secret for webhook signature verification
 
     # Backend URL for webhooks
     backend_url: str = "http://localhost:8000"  # Default for local development

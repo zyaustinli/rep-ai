@@ -24,7 +24,8 @@ class VapiService:
         scenario: Dict[str, Any],
         difficulty: str,
         call_type: str,
-        backend_url: Optional[str] = None
+        backend_url: Optional[str] = None,
+        webhook_secret: Optional[str] = None
     ) -> str:
         """
         Create a Vapi assistant configured with the sales scenario
@@ -34,6 +35,8 @@ class VapiService:
             scenario: The generated scenario with persona, context, objections
             difficulty: Difficulty level (easy, medium, hard, expert)
             call_type: Type of call (cold, warm, follow-up, closing)
+            backend_url: Backend URL for webhook callbacks (optional)
+            webhook_secret: Secret for webhook signature verification (optional)
 
         Returns:
             assistant_id: The Vapi assistant ID
@@ -81,9 +84,16 @@ class VapiService:
         # Add server URL for webhooks if provided
         # Note: Vapi requires HTTPS or WSS protocol, not HTTP
         if backend_url and (backend_url.startswith("https://") or backend_url.startswith("wss://")):
-            assistant_config["server"] = {
+            server_config = {
                 "url": f"{backend_url}/api/sessions/vapi/webhook"
             }
+
+            # Add webhook secret for signature verification if provided
+            if webhook_secret:
+                server_config["secret"] = webhook_secret
+
+            assistant_config["server"] = server_config
+
             # Explicitly request transcript events (not in VAPI defaults)
             # transcript events include transcriptType: "partial" | "final"
             # Note: Python SDK uses snake_case: server_messages
