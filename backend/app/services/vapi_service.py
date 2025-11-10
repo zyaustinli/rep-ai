@@ -67,8 +67,8 @@ class VapiService:
                 ]
             },
             "voice": {
-                "provider": "azure",
-                "voiceId": "andrew"
+                "provider": "11labs",
+                "voiceId": "21m00Tcm4TlvDq8ikWAM"
             },
             "artifact_plan": {
                 "recording_enabled": True,
